@@ -93,6 +93,10 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     private static final int BASE_CLAN = 1;
     private static final int BASE_IS_MIXED = 2;
     private static final int BASE_CLAN_MIXED = 3;
+    private static final int BASE_LEGION = 4;
+    private static final int BASE_OS_MIXED = 5;
+    // Ascended is a strict-pure tech base — there is intentionally no BASE_ASCENDED_MIXED.
+    private static final int BASE_ASCENDED = 6;
 
     private static final String SOURCE_TOOLTIP_TEMPLATE =
           "<html>%s<hr>Product Code: %s<br>Saved to file as: %s</div></html>";
@@ -303,7 +307,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         setYear(Math.max(en.getYear(), txtYear.getMinimum()));
         setSource(en.getSource());
         cbTechBase.removeActionListener(this);
-        setTechBase(en.isClan(), en.isMixedTech());
+        setTechBase(en.isClan(), en.isMixedTech(), en.isOuterSphere(), en.isAscended());
         cbTechBase.addActionListener(this);
         cbTechLevel.removeActionListener(this);
         SimpleTechLevel lvl = useTP ? en.getSimpleLevel(getGameYear()) : en.getStaticTechLevel();
@@ -446,17 +450,44 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         }
         Integer selected = (Integer) cbTechBase.getSelectedItem();
         return ((null != selected)
-              && ((selected == BASE_IS_MIXED) || (selected == BASE_CLAN_MIXED)));
+              && ((selected == BASE_IS_MIXED) || (selected == BASE_CLAN_MIXED) || (selected == BASE_OS_MIXED)));
+    }
+
+    @Override
+    public boolean useOSTechBase() {
+        Integer selected = (Integer) cbTechBase.getSelectedItem();
+        return (null != selected) && ((selected == BASE_LEGION) || (selected == BASE_OS_MIXED));
+    }
+
+    @Override
+    public boolean useAscendedTechBase() {
+        Integer selected = (Integer) cbTechBase.getSelectedItem();
+        return (null != selected) && (selected == BASE_ASCENDED);
     }
 
     public void setTechBase(boolean clan, boolean mixed) {
-        int item = 0;
-        if (clan && (getTechIntroYear() > CLAN_START)) {
-            item++;
-        }
+        setTechBase(clan, mixed, false);
+    }
 
-        if (mixed) {
-            item += 2;
+    public void setTechBase(boolean clan, boolean mixed, boolean legion) {
+        setTechBase(clan, mixed, legion, false);
+    }
+
+    public void setTechBase(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        int item;
+        if (ascended) {
+            // Ascended has no Mixed variant — mixed/clan/legion are ignored when ascended=true.
+            item = BASE_ASCENDED;
+        } else if (legion) {
+            item = mixed ? BASE_OS_MIXED : BASE_LEGION;
+        } else {
+            item = 0;
+            if (clan && (getTechIntroYear() > CLAN_START)) {
+                item++;
+            }
+            if (mixed) {
+                item += 2;
+            }
         }
         cbTechBase.setSelectedItem(item);
         refreshFaction();
@@ -492,6 +523,14 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
               && (clanFaction || (getTechIntroYear() >= IS_MIXED_START));
         final boolean mixedTechAvailable = (getTechIntroYear() >= IS_MIXED_START)
               || ((getTechIntroYear() >= CLAN_MIXED_START) && clanFaction);
+        // OS is available for any unit that isn't exclusively Clan tech.
+        // Note: TechBase.IS units (e.g. superheavy Meks) are still eligible — the IS check
+        // only gates Clan availability, not OS.
+        final boolean legionAvailable = (baseTA.getTechBase() != TechBase.CLAN);
+        // Ascended is available for any unit that isn't exclusively Clan tech (same gating
+        // rationale as OS). No Mixed variant — Ascended is strict-pure.
+        final boolean ascendedAvailable = (baseTA.getTechBase() != TechBase.CLAN);
+
         if (sphereAvailable) {
             cbTechBase.addItem(BASE_IS);
         }
@@ -506,6 +545,18 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
 
         if (clanAvailable && mixedTechAvailable) {
             cbTechBase.addItem(BASE_CLAN_MIXED);
+        }
+
+        if (legionAvailable) {
+            cbTechBase.addItem(BASE_LEGION);
+        }
+
+        if (legionAvailable && mixedTechAvailable) {
+            cbTechBase.addItem(BASE_OS_MIXED);
+        }
+
+        if (ascendedAvailable) {
+            cbTechBase.addItem(BASE_ASCENDED);
         }
 
         if (prev != null) {
@@ -629,7 +680,8 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
             listeners.forEach(BuildListener::updateTechLevel);
             refreshTechBase();
         } else if (e.getSource() == cbTechBase) {
-            listeners.forEach(l -> l.techBaseChanged(useClanTechBase(), useMixedTech()));
+            listeners.forEach(l -> l.techBaseChanged(useClanTechBase(), useMixedTech(),
+                  useOSTechBase(), useAscendedTechBase()));
             refreshTechLevel();
         } else if (e.getSource() == cbTechLevel) {
             listeners.forEach(l -> l.techLevelChanged(getTechLevel()));

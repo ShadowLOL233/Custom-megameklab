@@ -71,6 +71,12 @@ class BMEquipmentDatabaseView extends AbstractEquipmentDatabaseView {
             if (!UnitUtil.hasTargComp(getMek())) {
                 UnitUtil.updateTC(getMek(), equip);
             }
+        } else if (isMisc && equip.hasFlag(MiscType.F_OS_PFD)
+                && getMek().getMisc().stream().anyMatch(m -> m.getType().hasFlag(MiscType.F_OS_ADV_PFD))) {
+            // Adv. PFD already installed — PFD and Adv. PFD are mutually exclusive
+        } else if (isMisc && equip.hasFlag(MiscType.F_OS_ADV_PFD)
+                && getMek().getMisc().stream().anyMatch(m -> m.getType().hasFlag(MiscType.F_OS_PFD))) {
+            // PFD already installed — PFD and Adv. PFD are mutually exclusive
         } else if (isMisc && UnitUtil.isFixedLocationSpreadEquipment(equip)) {
             MekUtil.createSpreadMounts(getMek(), equip);
         } else {

@@ -883,6 +883,10 @@ public abstract class PrintEntity extends PrintRecordSheet {
             return "Mixed";
         } else if (getEntity().isClan()) {
             return "Clan";
+        } else if (getEntity().isAscended()) {
+            return "Ascended";
+        } else if (getEntity().isOuterSphere()) {
+            return "Outer Sphere";
         } else {
             return "Inner Sphere";
         }

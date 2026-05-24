@@ -56,6 +56,14 @@ public class TechComboBox<T extends ITechnology> extends CustomComboBox<T> {
     }
 
     private String getTechName(String name, TechBase techBase) {
+        if (techBase == TechBase.OUTER_SPHERE) {
+            String displayName = name.trim().replaceAll("^OS ", "").replaceAll(" \\(OS\\)$", "");
+            return showTechBase ? "OS " + displayName : displayName;
+        }
+        if (techBase == TechBase.ASCENDED) {
+            String displayName = name.trim().replaceAll("^Ascended ", "").replaceAll(" \\(Ascended\\)$", "");
+            return showTechBase ? "Ascended " + displayName : displayName;
+        }
         StringBuilder sb = new StringBuilder();
         if (showTechBase) {
             if (techBase == TechBase.CLAN) {

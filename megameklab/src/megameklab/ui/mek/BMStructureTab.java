@@ -492,6 +492,7 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
         int isCount;
         getMek().setStructureType(EquipmentType.getStructureType(structure));
         getMek().setStructureTechLevel(structure.getStaticTechLevel().getCompoundTechLevel(structure.isClan()));
+        getMek().autoSetInternal();
 
         isCount = structure.getNumCriticalSlots(getMek());
         if (isCount < 1) {
@@ -661,7 +662,18 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
 
     @Override
     public void techBaseChanged(boolean clan, boolean mixed) {
-        if ((clan != getMek().isClan()) || (mixed != getMek().isMixedTech())) {
+        techBaseChanged(clan, mixed, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion) {
+        techBaseChanged(clan, mixed, legion, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        if ((clan != getMek().isClan()) || (mixed != getMek().isMixedTech())
+              || (legion != getMek().isOuterSphere()) || (ascended != getMek().isAscended())) {
             // When switching away from mixed tech, remove Clan CASE from non-Clan units
             if (!mixed && !clan && getMek().hasClanCaseEquipped()) {
                 UnitUtil.removeAllMounted(getMek(), EquipmentType.get(EquipmentTypeLookup.CLAN_CASE));
@@ -690,7 +702,13 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (panArmor.isPatchwork() && !getTechManager().isLegal(Entity.getPatchworkArmorAdvancement())) {
             panArmor.setPatchwork(false);
             armorTypeChanged(panArmor.getArmorType(), panArmor.getArmorTechConstant());
@@ -814,6 +832,9 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
             createISMounts(panChassis.getStructure());
             resetSystemCrits();
             panMovement.setFromEntity(getMek());
+            // Re-place EARS/DDS components in case SH status changed (different location set)
+            MekUtil.updateEARSComponentPlacement(getMek());
+            MekUtil.updateDDSComponentPlacement(getMek());
         }
         refresh();
         refresh.refreshBuild();
@@ -1342,11 +1363,9 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
             pointsToAllocate = maxArmor;
         }
         double percent = pointsToAllocate / maxArmor;
-        int headMaxArmor = 9;
-        if (getMek().isSuperHeavy()) {
-            headMaxArmor = 12;
-        }
-        // put 5 times the percentage of total possible armor into the head
+        // Head armor max is fixed at 9/12 for all mechs (balance requirement)
+        int headMaxArmor = getMek().isSuperHeavy() ? 12 : 9;
+        // put 5 times the percentage of total possible armor into the head, capped at 9/12
         int headArmor = (int) Math.min(Math.floor(percent * headMaxArmor * 5), headMaxArmor);
         getMek().initializeArmor(headArmor, Mek.LOC_HEAD);
         pointsToAllocate -= headArmor;
@@ -1354,7 +1373,12 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
         // recalculate percentage for remainder
         percent = pointsToAllocate / maxArmor;
         for (int location = 0; location < getMek().locations(); location++) {
-            double IS = (getMek().getInternal(location) * 2);
+            // For OS mechs, use base IS (pre-HP-multiplier) so the proportional
+            // distribution is correct. Multiplied IS would skew allocation to early locations.
+            int baseIS = getMek().isOuterSphere()
+                  ? getMek().getBaseInternal(location)
+                  : getMek().getInternal(location);
+            double IS = baseIS * 2.0;
             double allocate = Math.min(IS * percent, pointsToAllocate);
             switch (location) {
                 case Mek.LOC_HEAD:
@@ -1398,13 +1422,12 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
      * @param points the amount of points left over
      */
     private void allocateLeftoverPoints(double points) {
-        int headMaxArmor = 9;
-        if (getMek().isSuperHeavy()) {
-            headMaxArmor = 12;
-        }
+        int headPoints = getMek().isSuperHeavy() ? 4 : 3;
+        int headMaxArmor = getMek().getOInternal(Mek.LOC_HEAD) * 2 + headPoints;
         while (points >= 1) {
             // if two or more are left, add armor to symmetrical locations,
             // to torso, legs, arms, in that order
+            boolean allocatedTwo = false;
             if (points >= 2) {
                 if (((getMek().getOArmor(Mek.LOC_LEFT_TORSO) + getMek().getOArmor(Mek.LOC_LEFT_TORSO,
                       true)) < (getMek().getOInternal(Mek.LOC_LEFT_TORSO) * 2))
@@ -1416,6 +1439,7 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
                     getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_TORSO) + 1,
                           Mek.LOC_RIGHT_TORSO);
                     points -= 2;
+                    allocatedTwo = true;
                 } else if ((getMek().getOArmor(Mek.LOC_LEFT_LEG) < (getMek()
                       .getOInternal(Mek.LOC_LEFT_LEG) * 2))
                       && (getMek().getOArmor(Mek.LOC_RIGHT_LEG) < (getMek()
@@ -1425,6 +1449,7 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
                     getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_LEG) + 1,
                           Mek.LOC_RIGHT_LEG);
                     points -= 2;
+                    allocatedTwo = true;
                 } else if ((getMek().getOArmor(Mek.LOC_LEFT_ARM) < (getMek()
                       .getOInternal(Mek.LOC_LEFT_ARM) * 2))
                       && (getMek().getOArmor(Mek.LOC_RIGHT_ARM) < (getMek()
@@ -1434,50 +1459,54 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
                     getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_ARM) + 1,
                           Mek.LOC_RIGHT_ARM);
                     points -= 2;
+                    allocatedTwo = true;
                 }
-                // otherwise, first add to the head, and then even out uneven
-                // allocation
-            } else if (getMek().getOArmor(Mek.LOC_HEAD) < headMaxArmor) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_HEAD) + 1,
-                      Mek.LOC_HEAD);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_LEFT_TORSO) < getMek()
-                  .getOArmor(Mek.LOC_RIGHT_TORSO)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_TORSO) + 1,
-                      Mek.LOC_LEFT_TORSO);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_RIGHT_TORSO) < getMek()
-                  .getOArmor(Mek.LOC_LEFT_TORSO)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_TORSO) + 1,
-                      Mek.LOC_RIGHT_TORSO);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_RIGHT_ARM) < getMek()
-                  .getOArmor(Mek.LOC_LEFT_ARM)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_ARM) + 1,
-                      Mek.LOC_RIGHT_ARM);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_LEFT_ARM) < getMek()
-                  .getOArmor(Mek.LOC_RIGHT_ARM)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_ARM) + 1,
-                      Mek.LOC_LEFT_ARM);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_RIGHT_LEG) < getMek()
-                  .getArmor(Mek.LOC_LEFT_LEG)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_LEG) + 1,
-                      Mek.LOC_RIGHT_LEG);
-                points--;
-            } else if (getMek().getOArmor(Mek.LOC_LEFT_LEG) < getMek()
-                  .getOArmor(Mek.LOC_RIGHT_LEG)) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_LEG) + 1,
-                      Mek.LOC_LEFT_LEG);
-                points--;
-                // if nothing is uneven, add to the CT
-            } else if (((getMek().getOArmor(Mek.LOC_CENTER_TORSO) + getMek().getOArmor(
-                  Mek.LOC_CENTER_TORSO, true)) < (getMek().getOInternal(Mek.LOC_CENTER_TORSO) * 2))) {
-                getMek().initializeArmor(getMek().getOArmor(Mek.LOC_CENTER_TORSO) + 1,
-                      Mek.LOC_CENTER_TORSO);
-                points--;
             }
+            // If no symmetric pair had room (or only 1 point remains), add to
+            // the head first, then even out uneven allocation, then CT.
+            if (!allocatedTwo) {
+                if (getMek().getOArmor(Mek.LOC_HEAD) < headMaxArmor) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_HEAD) + 1,
+                          Mek.LOC_HEAD);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_LEFT_TORSO) < getMek()
+                      .getOArmor(Mek.LOC_RIGHT_TORSO)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_TORSO) + 1,
+                          Mek.LOC_LEFT_TORSO);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_RIGHT_TORSO) < getMek()
+                      .getOArmor(Mek.LOC_LEFT_TORSO)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_TORSO) + 1,
+                          Mek.LOC_RIGHT_TORSO);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_RIGHT_ARM) < getMek()
+                      .getOArmor(Mek.LOC_LEFT_ARM)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_ARM) + 1,
+                          Mek.LOC_RIGHT_ARM);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_LEFT_ARM) < getMek()
+                      .getOArmor(Mek.LOC_RIGHT_ARM)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_ARM) + 1,
+                          Mek.LOC_LEFT_ARM);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_RIGHT_LEG) < getMek()
+                      .getArmor(Mek.LOC_LEFT_LEG)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_RIGHT_LEG) + 1,
+                          Mek.LOC_RIGHT_LEG);
+                    points--;
+                } else if (getMek().getOArmor(Mek.LOC_LEFT_LEG) < getMek()
+                      .getOArmor(Mek.LOC_RIGHT_LEG)) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_LEFT_LEG) + 1,
+                          Mek.LOC_LEFT_LEG);
+                    points--;
+                    // if nothing is uneven, add to the CT
+                } else if (((getMek().getOArmor(Mek.LOC_CENTER_TORSO) + getMek().getOArmor(
+                      Mek.LOC_CENTER_TORSO, true)) < (getMek().getOInternal(Mek.LOC_CENTER_TORSO) * 2))) {
+                    getMek().initializeArmor(getMek().getOArmor(Mek.LOC_CENTER_TORSO) + 1,
+                          Mek.LOC_CENTER_TORSO);
+                    points--;
+                }
+            } // end !allocatedTwo
             // if only one is left, and head and CT have max, remove one from CT
             // so symmetric locations can get extra, unless they are already at
             // max
@@ -1496,10 +1525,6 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
                 double is = (getMek().getInternal(location) * 2);
                 switch (location) {
                     case Mek.LOC_HEAD:
-                        int headPoints = 3;
-                        if (getMek().isSuperHeavy()) {
-                            headPoints = 4;
-                        }
                         if ((is + headPoints) > getMek().getOArmor(location)) {
                             toReturn = false;
                         }

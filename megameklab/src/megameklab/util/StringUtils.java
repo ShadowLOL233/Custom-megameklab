@@ -211,6 +211,12 @@ public class StringUtils {
             } else if (weapon instanceof UACWeapon) {
                 info = Integer.toString(weapon.getDamage());
                 info += "/Sht [DB,R/C]";
+            } else if (weapon.hasFlag(WeaponType.F_PPC_ROTARY)) {
+                // Rotary PPC family — mirrors the UAC "/Sht [DB,R/C]" convention but with
+                // Direct Energy class. Per-shot damage × 1-6 sub-bolts using cluster table;
+                // 4+ shot modes consume RPPC Coolant Pod charges to suppress heat.
+                info = Integer.toString(weapon.getDamage());
+                info += "/Sht [DE,R/C]";
             } else if ((weapon instanceof ISVehicularGrenadeLauncher)) {
                 info = "[AE,OS]";
             } else {

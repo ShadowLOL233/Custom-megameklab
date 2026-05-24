@@ -65,6 +65,25 @@ public interface BuildListener {
 
     void techBaseChanged(boolean clan, boolean mixed);
 
+    /**
+     * Called when the tech base changes to a OS tech base. Defaults to delegating to
+     * {@link #techBaseChanged(boolean, boolean)} with clan=false, mixed=false.
+     * Override in structure tabs that need to handle OS-specific logic.
+     */
+    default void techBaseChanged(boolean clan, boolean mixed, boolean legion) {
+        techBaseChanged(clan, mixed);
+    }
+
+    /**
+     * Called when the tech base changes to an Ascended tech base. Defaults to delegating
+     * to {@link #techBaseChanged(boolean, boolean, boolean)} with the Ascended flag dropped
+     * — most structure tabs don't need Ascended-specific handling and can ignore the new
+     * parameter; ones that do should override.
+     */
+    default void techBaseChanged(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        techBaseChanged(clan, mixed, legion);
+    }
+
     void techLevelChanged(SimpleTechLevel techLevel);
 
     void roleChanged(UnitRole role);

@@ -668,6 +668,24 @@ public final class MekUtil {
                 for (int i = Mek.LOC_RIGHT_TORSO; i < unit.locations(); i++) {
                     locations.add(i);
                 }
+            } else if (equip.hasFlag(MiscType.F_EARS) || equip.hasFlag(MiscType.F_DDS)) {
+                // 1 crit per location — normal meks include CT, SH meks skip CT
+                int startLoc = unit.isSuperHeavy() ? Mek.LOC_LEFT_TORSO : Mek.LOC_CENTER_TORSO;
+                for (int i = startLoc; i < unit.locations(); i++) {
+                    locations.add(i);
+                }
+                if (unit instanceof TripodMek) {
+                    locations.add(Mek.LOC_CENTER_LEG);
+                }
+                blocks = locations.size();
+            } else if (equip.hasFlag(MiscType.F_OS_PFD) || equip.hasFlag(MiscType.F_OS_ADV_PFD)) {
+                // 5 fixed crits: CT, RT, LT, RA, LA (no head, no legs)
+                locations.add(Mek.LOC_CENTER_TORSO);
+                locations.add(Mek.LOC_RIGHT_TORSO);
+                locations.add(Mek.LOC_LEFT_TORSO);
+                locations.add(Mek.LOC_RIGHT_ARM);
+                locations.add(Mek.LOC_LEFT_ARM);
+                blocks = 5;
             }
         }
 
@@ -1274,6 +1292,9 @@ public final class MekUtil {
         if (hadClanCase) {
             removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.CLAN_CASE));
             addClanCaseToExplosiveLocations(mek);
+        } else if (mek.isOuterSphere()) {
+            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_CASE));
+            mek.addOSCase();
         }
     }
 
@@ -1308,6 +1329,48 @@ public final class MekUtil {
                 } catch (Exception ignored) {
                     // 0-crit equipment shouldn't fail
                 }
+            }
+        }
+    }
+
+    /**
+     * Re-spreads EARS crit slots to match the mek's current type (normal vs SH).
+     * Removes the existing EARS mount (and any legacy components), then re-creates
+     * the spread mounts via createSpreadMounts so the correct locations are used.
+     *
+     * @param mek the mek to update
+     */
+    public static void updateEARSComponentPlacement(Mek mek) {
+        boolean hadEars = mek.getMisc().stream()
+              .anyMatch(m -> m.getType().hasFlag(MiscType.F_EARS));
+        // Also clean up any legacy component items from old saves
+        removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS_COMPONENT));
+        if (hadEars) {
+            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS));
+            EquipmentType earsType = EquipmentType.get(EquipmentTypeLookup.OS_EARS);
+            if (earsType != null) {
+                createSpreadMounts(mek, earsType);
+            }
+        }
+    }
+
+    /**
+     * Re-spreads DDS crit slots to match the mek's current type (normal vs SH).
+     * Removes the existing DDS mount (and any legacy components), then re-creates
+     * the spread mounts via createSpreadMounts so the correct locations are used.
+     *
+     * @param mek the mek to update
+     */
+    public static void updateDDSComponentPlacement(Mek mek) {
+        boolean hadDds = mek.getMisc().stream()
+              .anyMatch(m -> m.getType().hasFlag(MiscType.F_DDS));
+        // Also clean up any legacy component items from old saves
+        removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS_COMPONENT));
+        if (hadDds) {
+            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS));
+            EquipmentType ddsType = EquipmentType.get(EquipmentTypeLookup.OS_DDS);
+            if (ddsType != null) {
+                createSpreadMounts(mek, ddsType);
             }
         }
     }
@@ -1396,7 +1459,9 @@ public final class MekUtil {
             if (eq.hasFlag(MiscType.F_MEK_EQUIPMENT)
                   && !eq.hasFlag(MiscType.F_CLUB)
                   && !eq.hasFlag(MiscType.F_HAND_WEAPON)
-                  && !eq.hasFlag(MiscType.F_TALON)) {
+                  && !eq.hasFlag(MiscType.F_TALON)
+                  && !eq.hasFlag(MiscType.F_EARS_COMPONENT)
+                  && !eq.hasFlag(MiscType.F_DDS_COMPONENT)) {
                 return true;
             }
 
