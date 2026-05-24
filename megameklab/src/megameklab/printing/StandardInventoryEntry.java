@@ -292,9 +292,23 @@ public class StandardInventoryEntry implements InventoryEntry, Comparable<Standa
 
     private String formatName() {
         StringBuilder name = getName();
-        // For mixed tech units, we want to append the tech base if there is ambiguity, and it isn't already part of
-        // the name.
-        if (showTechBase()) {
+        // For mixed tech units, append a tech base suffix to disambiguate:
+        // - OS weapons get (OS) in any mixed mode
+        // - In Mixed Outer Sphere units, IS weapons get (IS) and Clan weapons get (C)
+        // - Ascended weapons need no suffix on Ascended units (pure tech base, no Mixed)
+        // - Otherwise fall back to the legacy ambiguity-based showTechBase() check
+        TechBase weaponTech = mount.getType().getTechBase();
+        boolean unitMixed = mount.getEntity().isMixedTech();
+        boolean unitOuterSphere = mount.getEntity().isOuterSphere();
+        if (unitMixed && weaponTech == TechBase.OUTER_SPHERE) {
+            name.append(" (OS)");
+        } else if (unitMixed && unitOuterSphere && weaponTech == TechBase.IS) {
+            name.append(" (IS)");
+        } else if (unitMixed && unitOuterSphere && weaponTech == TechBase.CLAN) {
+            name.append(" (C)");
+        } else if (weaponTech == TechBase.ASCENDED) {
+            // No suffix — Ascended is pure tech base, no Mixed variant means no ambiguity.
+        } else if (showTechBase()) {
             name.append(mount.getType().isClan() ? " (C)" : " (IS)");
         }
         // Spheroid Small Craft / DropShips use a different location name for aft side weapons
@@ -333,11 +347,11 @@ public class StandardInventoryEntry implements InventoryEntry, Comparable<Standa
         if (eqName.length() > 20) {
             eqName = mount.getShortName();
         }
-        // If this is not a mixed tech unit, remove trailing IS or Clan tag in brackets or parentheses,
+        // If this is not a mixed tech unit, remove trailing IS, Clan, or OS tag in brackets or parentheses,
         // including possible leading space. For mixed tech units this is presumably needed to remove
         // ambiguity.
         if (!mount.getEntity().isMixedTech()) {
-            eqName = eqName.replaceAll(" ?[\\[(](Clan|IS)[])]", "");
+            eqName = eqName.replaceAll(" ?[\\[(](Clan|IS|OS)[])]", "");
         }
         return new StringBuilder(eqName);
     }

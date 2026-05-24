@@ -253,9 +253,9 @@ public class ArmorAllocationView extends BuildView implements ArmorLocationListe
                 locView.setPointsRear(0);
             }
         }
-        int maxArmorPoints = UnitUtil.getMaximumArmorPoints(en);
         int raw = (int) (TestEntity.getRawArmorPoints(en, en.getLabArmorTonnage())
               + TestEntity.getSIBonusArmorPoints(en));
+        int maxArmorPoints = UnitUtil.getMaximumArmorPoints(en);
         int currentPoints = en.getTotalOArmor();
         int armorPoints;
         if (showPatchwork) {

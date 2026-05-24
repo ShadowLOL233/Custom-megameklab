@@ -114,6 +114,34 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] LAM_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.COMPACT_ENGINE
     };
+    // OS Meks: OS engines + IS Fusion/XL as baseline options
+    private final static int[] OS_ENGINE_TYPES = {
+          Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
+          Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE
+    };
+    // OS superheavy Meks also get the superheavy variants
+    private final static int[] OS_SH_ENGINE_TYPES = {
+          Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
+          Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
+    };
+    // Mixed OS: all IS engine types + OS engine types (isLegal() handles Clan variants)
+    private final static int[] OS_MIXED_ENGINE_TYPES = {
+          Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
+          Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
+          Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE
+    };
+    // Mixed OS superheavy: same but with SH variants
+    private final static int[] OS_MIXED_SH_ENGINE_TYPES = {
+          Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
+          Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
+          Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
+    };
 
     // Internal structure for non-industrial Meks
     private final static int[] STRUCTURE_TYPES = {
@@ -126,6 +154,48 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] SUPERHEAVY_STRUCTURE_TYPES = {
           EquipmentType.T_STRUCTURE_STANDARD, EquipmentType.T_STRUCTURE_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_ENDO_COMPOSITE
+    };
+
+    // OS internal structure for non-superheavy Meks
+    private final static int[] OS_STRUCTURE_TYPES = {
+          EquipmentType.T_STRUCTURE_STANDARD,
+          EquipmentType.T_STRUCTURE_OS_IMP_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ADV_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY,
+          EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY_ENDO_STEEL
+    };
+
+    // OS internal structure for superheavy Meks (SH-specific types + compatible standard ones)
+    private final static int[] OS_SH_STRUCTURE_TYPES = {
+          EquipmentType.T_STRUCTURE_STANDARD,
+          EquipmentType.T_STRUCTURE_OS_IMP_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ADV_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_IMP_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY,
+          EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY,
+          EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_SH_DUTY_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_SH_REINFORCE,
+          EquipmentType.T_STRUCTURE_OS_SH_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_SH_REINFORCE_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_SH_REINFORCE_HEAVY_DUTY,
+          EquipmentType.T_STRUCTURE_OS_SH_REINFORCE_HEAVY_DUTY_ENDO_STEEL
     };
 
     final private SpinnerNumberModel tonnageModel = new SpinnerNumberModel(20, 20, 100, 5);
@@ -472,6 +542,46 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         } else if (isPrimitive()) {
             String name = EquipmentType.getStructureTypeName(EquipmentType.T_STRUCTURE_STANDARD, isClan);
             cbStructure.addItem(EquipmentType.get(name));
+        } else if (techManager.useOSTechBase()) {
+            int[] osStructureTypes = isSuperheavy() ? OS_SH_STRUCTURE_TYPES : OS_STRUCTURE_TYPES;
+            if (techManager.useMixedTech()) {
+                // Mixed OS: OS-specific types first (skip Standard, covered by IS/Clan block),
+                // then IS and Clan types with same deduplication as mixed IS/Clan
+                for (int i : osStructureTypes) {
+                    if (i == EquipmentType.T_STRUCTURE_STANDARD) {
+                        continue; // will be added via IS/Clan block below
+                    }
+                    String name = EquipmentType.getStructureTypeName(i);
+                    EquipmentType structure = EquipmentType.get(name);
+                    if ((null != structure) && techManager.isLegal(structure)) {
+                        cbStructure.addItem(structure);
+                    }
+                }
+                int[] structureTypes = isSuperheavy() ? SUPERHEAVY_STRUCTURE_TYPES : STRUCTURE_TYPES;
+                for (int i : structureTypes) {
+                    String nameIS = EquipmentType.getStructureTypeName(i, false);
+                    EquipmentType structureIS = EquipmentType.get(nameIS);
+                    if ((null != structureIS) && techManager.isLegal(structureIS)) {
+                        cbStructure.addItem(structureIS);
+                    }
+                    String nameClan = EquipmentType.getStructureTypeName(i, true);
+                    EquipmentType structureClan = EquipmentType.get(nameClan);
+                    if ((null != structureClan) && (structureClan != structureIS)
+                          && techManager.isLegal(structureClan)) {
+                        cbStructure.addItem(structureClan);
+                    }
+                }
+                cbStructure.showTechBase(true);
+            } else {
+                // Pure OS: show all OS structure types including Standard
+                for (int i : osStructureTypes) {
+                    String name = EquipmentType.getStructureTypeName(i);
+                    EquipmentType structure = EquipmentType.get(name);
+                    if ((null != structure) && techManager.isLegal(structure)) {
+                        cbStructure.addItem(structure);
+                    }
+                }
+            }
         } else {
             int[] structureTypes = isSuperheavy() ?
                   SUPERHEAVY_STRUCTURE_TYPES : STRUCTURE_TYPES;
@@ -653,7 +763,13 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         }
         int altFlags = flags ^ Engine.CLAN_ENGINE;
         int[] engineTypes = ENGINE_TYPES;
-        if (isPrimitive() || isIndustrial()) {
+        if (techManager.useOSTechBase()) {
+            if (techManager.useMixedTech()) {
+                engineTypes = isSuperheavy() ? OS_MIXED_SH_ENGINE_TYPES : OS_MIXED_ENGINE_TYPES;
+            } else {
+                engineTypes = isSuperheavy() ? OS_SH_ENGINE_TYPES : OS_ENGINE_TYPES;
+            }
+        } else if (isPrimitive() || isIndustrial()) {
             engineTypes = INDUSTRIAL_ENGINE_TYPES;
         } else if (getBaseTypeIndex() == BASE_TYPE_LAM) {
             engineTypes = LAM_ENGINE_TYPES;

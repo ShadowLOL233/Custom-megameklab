@@ -140,6 +140,10 @@ public class UnitUtil {
                     eq.hasFlag(MiscType.F_PARTIAL_WING) ||
                     eq.hasFlag(MiscType.F_NULL_SIG) ||
                     eq.hasFlag(MiscType.F_VOID_SIG) ||
+                    eq.hasFlag(MiscType.F_EARS) ||
+                    eq.hasFlag(MiscType.F_DDS) ||
+                    eq.hasFlag(MiscType.F_OS_PFD) ||
+                    eq.hasFlag(MiscType.F_OS_ADV_PFD) ||
                     eq.hasFlag(MiscType.F_ENVIRONMENTAL_SEALING) ||
                     eq.hasFlag(MiscType.F_TRACKS) ||
                     eq.hasFlag(MiscType.F_TALON) ||
@@ -416,6 +420,15 @@ public class UnitUtil {
                 }
             }
         }
+
+        // When the main EARS/DDS unit is removed, remove all associated components
+        if ((mount.getType() instanceof MiscType) && mount.getType().hasFlag(MiscType.F_EARS)) {
+            removeAllMounted(unit, EquipmentType.get(EquipmentTypeLookup.OS_EARS_COMPONENT));
+        }
+        if ((mount.getType() instanceof MiscType) && mount.getType().hasFlag(MiscType.F_DDS)) {
+            removeAllMounted(unit, EquipmentType.get(EquipmentTypeLookup.OS_DDS_COMPONENT));
+        }
+
         unit.recalculateTechAdvancement();
     }
 
@@ -634,6 +647,8 @@ public class UnitUtil {
               (eq.hasFlag(MiscType.F_HEAT_SINK) ||
                     eq.hasFlag(MiscType.F_LASER_HEAT_SINK) ||
                     eq.hasFlag(MiscType.F_DOUBLE_HEAT_SINK) ||
+                    eq.hasFlag(MiscType.F_TRIPLE_HEAT_SINK) ||
+                    eq.hasFlag(MiscType.F_QUAD_HEAT_SINK) ||
                     (eq.hasFlag(MiscType.F_IS_DOUBLE_HEAT_SINK_PROTOTYPE) && !ignorePrototype));
     }
 
@@ -957,11 +972,19 @@ public class UnitUtil {
     public static int getMaximumArmorPoints(Entity unit) {
         int points = 0;
         if (unit.hasETypeFlag(Entity.ETYPE_MEK)) {
-            int headPoints = 3;
-            if (unit.getWeightClass() == EntityWeightClass.WEIGHT_SUPER_HEAVY) {
-                headPoints = 4;
+            // Head armor max is fixed at 9/12 regardless of IS type
+            int maxHead = unit.isSuperHeavy() ? 12 : 9;
+            if (unit instanceof Mek mek && mek.isOuterSphere()) {
+                // Use base IS (pre-HP-multiplier) for armor cap; only HD types get +15% bonus
+                int baseBodyIS = 0;
+                for (int loc = 1; loc < mek.locations(); loc++) {
+                    baseBodyIS += mek.getBaseInternal(loc);
+                }
+                double armorBonus = mek.getOSArmorBonus();
+                points = (int) Math.round(baseBodyIS * 2 * (1.0 + armorBonus)) + maxHead;
+            } else {
+                points = (unit.getTotalInternal() - unit.getOInternal(Mek.LOC_HEAD)) * 2 + maxHead;
             }
-            points = (unit.getTotalInternal() * 2) + headPoints;
         } else if (unit.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
             points = TestProtoMek.maxArmorFactor((ProtoMek) unit);
         } else if (unit.isSupportVehicle()) {
@@ -984,11 +1007,10 @@ public class UnitUtil {
 
     public static int getMaximumArmorPoints(Entity unit, int loc) {
         if ((unit instanceof Mek) && (loc == Mek.LOC_HEAD)) {
-            if (unit.isSuperHeavy()) {
-                return 12;
-            } else {
-                return 9;
-            }
+            // Head armor cap is fixed at 9 (12 for superheavy) regardless of internal structure
+            // type. This matches the canonical TestMek validation rule and prevents OS
+            // structure HP multipliers from raising the slider cap above the valid maximum.
+            return unit.isSuperHeavy() ? 12 : 9;
         } else if (unit instanceof Mek) {
             return unit.getInternal(loc) * 2;
         } else if (unit.isSupportVehicle()) {
@@ -1016,15 +1038,22 @@ public class UnitUtil {
         if (unit.getArmorType(1) == EquipmentType.T_ARMOR_HARDENED) {
             armorPerTon = 8.0;
         }
-        if (unit instanceof Mek) {
-            double points = (unit.getTotalInternal() * 2);
-            // Add in extra armor points for head
-            if (unit.isSuperHeavy()) {
-                points += 4;
+        if (unit instanceof Mek mek) {
+            // Head armor max is fixed at 9/12 regardless of IS type
+            int maxHead = unit.isSuperHeavy() ? 12 : 9;
+            double maxPoints;
+            if (mek.isOuterSphere()) {
+                // Use base IS (pre-HP-multiplier) for armor cap; only HD types get +15% bonus
+                int baseBodyIS = 0;
+                for (int loc = 1; loc < mek.locations(); loc++) {
+                    baseBodyIS += mek.getBaseInternal(loc);
+                }
+                double armorBonus = mek.getOSArmorBonus();
+                maxPoints = Math.round(baseBodyIS * 2 * (1.0 + armorBonus)) + maxHead;
             } else {
-                points += 3;
+                maxPoints = (unit.getTotalInternal() - unit.getOInternal(Mek.LOC_HEAD)) * 2 + maxHead;
             }
-            armorWeight = points / armorPerTon;
+            armorWeight = maxPoints / armorPerTon;
             armorWeight = Math.ceil(armorWeight * 2.0) / 2.0;
         } else if (unit instanceof ProtoMek) {
             double points = TestProtoMek.maxArmorFactor((ProtoMek) unit);
@@ -1090,11 +1119,15 @@ public class UnitUtil {
             return 0;
         }
         if (entity.hasETypeFlag(Entity.ETYPE_MEK)) {
+            // Head armor max is fixed at 9/12 for all mechs (balance requirement)
             if (location == Mek.LOC_HEAD) {
-                return (entity.getWeightClass() == EntityWeightClass.WEIGHT_SUPER_HEAVY) ? 12 : 9;
-            } else {
-                return entity.getOInternal(location) * 2;
+                return entity.isSuperHeavy() ? 12 : 9;
             }
+            // Non-head: OS mechs have no IS-based cap (tonnage is the only limit)
+            if (entity instanceof Mek mek && mek.isOuterSphere()) {
+                return null;
+            }
+            return entity.getOInternal(location) * 2;
         } else if (entity.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
             return TestProtoMek.maxArmorFactor((ProtoMek) entity, location);
         } else if ((entity instanceof VTOL) && (location == VTOL.LOC_ROTOR)) {
@@ -1531,6 +1564,7 @@ public class UnitUtil {
             for (String structureName : EquipmentType.structureNames) {
                 mountList.add("IS " + structureName);
                 mountList.add("Clan " + structureName);
+                mountList.add(structureName);
             }
         } else {
             mountList = ArmorType.allArmorTypes().stream().map(ArmorType::getInternalName).collect(Collectors.toList());
@@ -1578,7 +1612,10 @@ public class UnitUtil {
 
         for (int pos = 0; pos < unit.getEquipment().size(); ) {
             Mounted<?> mount = unit.getEquipment().get(pos);
-            if (mountList.contains(mount.getType().getInternalName())) {
+            // Match by internal name OR (when removing armor) by ArmorType to capture all variants
+            // including OS/OS armors whose internal names don't follow the IS/Clan/<name> pattern.
+            boolean isArmorByType = !internalStructure && (mount.getType() instanceof ArmorType);
+            if (mountList.contains(mount.getType().getInternalName()) || isArmorByType) {
                 unit.getEquipment().remove(pos);
             } else {
                 pos++;
@@ -1587,7 +1624,9 @@ public class UnitUtil {
 
         for (int pos = 0; pos < unit.getMisc().size(); ) {
             Mounted<?> mount = unit.getMisc().get(pos);
-            if ((mount.getType() instanceof MiscType) && mountList.contains(mount.getType().getInternalName())) {
+            boolean isArmorByType = !internalStructure && (mount.getType() instanceof ArmorType);
+            if (((mount.getType() instanceof MiscType) && mountList.contains(mount.getType().getInternalName()))
+                  || isArmorByType) {
                 unit.getMisc().remove(pos);
             } else {
                 pos++;
@@ -1992,6 +2031,12 @@ public class UnitUtil {
                 }
             } else if ((ammoType instanceof SmallWeaponAmmoType smallWeaponAmmoType) &&
                   smallWeaponAmmoType.isAmmoFor(m.getType())) {
+                return true;
+            }
+            // RPPC Coolant Pod is not linked via AmmoWeapon (Rotary PPC is an energy weapon).
+            // It services any F_PPC_ROTARY weapon on the entity via a shared coolant pool.
+            if ((ammoType.getAmmoType() == AmmoType.AmmoTypeEnum.PPC_COOLANT)
+                  && m.getType().hasFlag(WeaponType.F_PPC_ROTARY)) {
                 return true;
             }
         }

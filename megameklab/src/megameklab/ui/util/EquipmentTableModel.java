@@ -437,6 +437,8 @@ public class EquipmentTableModel extends AbstractTableModel {
             case ALL -> "All";
             case IS -> "IS";
             case CLAN -> "Clan";
+            case OUTER_SPHERE -> "Outer Sphere";
+            case ASCENDED -> "Ascended";
             default -> "Unknown";
         };
     }

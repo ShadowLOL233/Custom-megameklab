@@ -85,6 +85,9 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
     public static final int TYPE_LASER = 4;
     public static final int TYPE_PROTOTYPE = 5;
     public static final int TYPE_FREEZER = 6;
+    public static final int TYPE_OS_IMPROVED_DOUBLE = 7;
+    public static final int TYPE_OS_TRIPLE = 8;
+    public static final int TYPE_OS_QUAD = 9;
     // ASFs simply use an index and don't distinguish between IS and Clan
     public static final int TYPE_DOUBLE_AERO = 1;
     public static final int TYPE_PROTOTYPE_AERO = 2;
@@ -93,7 +96,10 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
           EquipmentTypeLookup.SINGLE_HS, EquipmentTypeLookup.IS_DOUBLE_HS,
           EquipmentTypeLookup.CLAN_DOUBLE_HS, EquipmentTypeLookup.COMPACT_HS_1,
           EquipmentTypeLookup.LASER_HS, EquipmentTypeLookup.IS_DOUBLE_HS_PROTOTYPE,
-          EquipmentTypeLookup.IS_DOUBLE_HS_FREEZER
+          EquipmentTypeLookup.IS_DOUBLE_HS_FREEZER,
+          EquipmentTypeLookup.OS_IMPROVED_DOUBLE_HS,
+          EquipmentTypeLookup.OS_TRIPLE_HS,
+          EquipmentTypeLookup.OS_QUAD_HS
     };
     private final List<EquipmentType> heatSinks;
     private String[] MekDisplayNames;

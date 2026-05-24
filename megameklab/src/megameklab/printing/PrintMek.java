@@ -959,6 +959,10 @@ public class PrintMek extends PrintEntity {
     private String formatHeatSinkType() {
         if (mek.hasLaserHeatSinks()) {
             return "Laser Heat Sinks:";
+        } else if (mek.hasWorkingMisc(MiscType.F_QUAD_HEAT_SINK)) {
+            return "Quadruple Heat Sinks:";
+        } else if (mek.hasWorkingMisc(MiscType.F_TRIPLE_HEAT_SINK)) {
+            return "Triple Heat Sinks:";
         } else if (mek.hasDoubleHeatSinks()) {
             return "Double Heat Sinks:";
         } else {

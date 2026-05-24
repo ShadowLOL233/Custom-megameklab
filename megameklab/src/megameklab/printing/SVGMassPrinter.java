@@ -1190,6 +1190,10 @@ public class SVGMassPrinter {
                 return "Mixed";
             } else if (entity.isClan()) {
                 return "Clan";
+            } else if (entity.isAscended()) {
+                return "Ascended";
+            } else if (entity.isOuterSphere()) {
+                return "Outer Sphere";
             } else {
                 return "Inner Sphere";
             }
