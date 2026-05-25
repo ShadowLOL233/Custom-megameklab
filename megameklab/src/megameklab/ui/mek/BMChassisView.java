@@ -119,13 +119,17 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] OS_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
-          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE
     };
     // OS superheavy Meks also get the superheavy variants
     private final static int[] OS_SH_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
           Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
     // Mixed OS: all IS engine types + OS engine types (isLegal() handles Clan variants)
@@ -133,7 +137,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
-          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE
+          Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE
     };
     // Mixed OS superheavy: same but with SH variants
     private final static int[] OS_MIXED_SH_ENGINE_TYPES = {
@@ -141,6 +147,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
+          Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
           Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
 
@@ -542,10 +550,15 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         spnTonnage.removeChangeListener(this);
         if (getBaseTypeIndex() == BASE_TYPE_LAM) {
             max = 55;
-        } else if (((getBaseTypeIndex() == BASE_TYPE_STANDARD) || (getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL))
-              && techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, false,
-              getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL, EntityWeightClass.WEIGHT_SUPER_HEAVY))) {
-            max = 200;
+        } else if ((getBaseTypeIndex() == BASE_TYPE_STANDARD) || (getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL)) {
+            // Outer Sphere uses its own OS-tech-base superheavy chassis so pure-OS units can exceed 100 tons
+            boolean superHeavyLegal = techManager.useOSTechBase()
+                  ? techManager.isLegal(Mek.getOSSuperheavyChassisTechAdvancement())
+                  : techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, false,
+                        getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL, EntityWeightClass.WEIGHT_SUPER_HEAVY));
+            if (superHeavyLegal) {
+                max = 200;
+            }
         }
         if (techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, false, false,
               EntityWeightClass.WEIGHT_ULTRA_LIGHT))) {
