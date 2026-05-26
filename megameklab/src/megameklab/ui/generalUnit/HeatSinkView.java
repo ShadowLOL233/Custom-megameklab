@@ -52,6 +52,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 import megamek.client.ui.util.DisplayTextField;
+import megamek.common.equipment.Engine;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.MiscType;
@@ -148,6 +149,8 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
     private boolean isAero;
     private boolean isPrimitive;
     private boolean hasPrototypeDoubles;
+    // Current Mek engine, used to gate OS Triple/Quadruple heat sinks by engine tier (null for aero)
+    private Engine engine;
 
     public HeatSinkView(ITechManager techManager) {
         this.techManager = techManager;
@@ -243,6 +246,7 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
     public void setFromMek(Mek mek) {
         isAero = false;
         isPrimitive = mek.isPrimitive();
+        engine = mek.getEngine();
         hasPrototypeDoubles = mek.hasWorkingMisc(MiscType.F_IS_DOUBLE_HEAT_SINK_PROTOTYPE);
         refresh();
         // If there are prototype doubles, we want to skip any singles and select that as the base type.
@@ -299,6 +303,7 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
     public void setFromAero(Aero aero) {
         isAero = true;
         isPrimitive = aero.isPrimitive();
+        engine = null;
         refresh();
         cbHSType.removeActionListener(this);
         // Roundabout way to make it show "Double (Prototype)"
@@ -352,9 +357,17 @@ public class HeatSinkView extends BuildView implements ActionListener, ChangeLis
             cbHSType.addItem(TYPE_SINGLE);
         } else {
             for (int i = 0; i < heatSinks.size(); i++) {
-                if (techManager.isLegal(heatSinks.get(i))) {
-                    cbHSType.addItem(i);
+                if (!techManager.isLegal(heatSinks.get(i))) {
+                    continue;
                 }
+                // OS engine tier gates the OS Triple/Quadruple heat sinks
+                if ((i == TYPE_OS_TRIPLE) && (engine != null) && engine.prohibitsOSTripleHeatSinks()) {
+                    continue;
+                }
+                if ((i == TYPE_OS_QUAD) && (engine != null) && engine.prohibitsOSQuadHeatSinks()) {
+                    continue;
+                }
+                cbHSType.addItem(i);
             }
         }
         cbHSType.setSelectedItem(prev);

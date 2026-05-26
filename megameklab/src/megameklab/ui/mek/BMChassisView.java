@@ -121,7 +121,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
           Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
-          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
+          Engine.OS_STD_FUSION_ENGINE, Engine.OS_ADV_LIGHT_ENGINE, Engine.OS_IMP_XXL_ENGINE,
+          Engine.OS_IMP_COMPACT_ENGINE, Engine.OS_ADV_COMPACT_ENGINE
     };
     // OS superheavy Meks also get the superheavy variants
     private final static int[] OS_SH_ENGINE_TYPES = {
@@ -130,7 +132,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
           Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
           Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
-          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
+          Engine.OS_STD_FUSION_ENGINE, Engine.OS_ADV_LIGHT_ENGINE, Engine.OS_IMP_XXL_ENGINE,
+          Engine.OS_IMP_COMPACT_ENGINE, Engine.OS_ADV_COMPACT_ENGINE,
+          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
     };
     // Mixed OS: all IS engine types + OS engine types (isLegal() handles Clan variants)
     private final static int[] OS_MIXED_ENGINE_TYPES = {
@@ -139,7 +143,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_STANDARD_ENGINE, Engine.OS_LIGHT_ENGINE, Engine.OS_XL_ENGINE,
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
           Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
-          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE
+          Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
+          Engine.OS_STD_FUSION_ENGINE, Engine.OS_ADV_LIGHT_ENGINE, Engine.OS_IMP_XXL_ENGINE,
+          Engine.OS_IMP_COMPACT_ENGINE, Engine.OS_ADV_COMPACT_ENGINE
     };
     // Mixed OS superheavy: same but with SH variants
     private final static int[] OS_MIXED_SH_ENGINE_TYPES = {
@@ -149,7 +155,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_XXL_ENGINE, Engine.OS_COMPACT_ENGINE,
           Engine.OS_IMP_STD_ENGINE, Engine.OS_IMP_LIGHT_ENGINE, Engine.OS_BASE_XL_ENGINE,
           Engine.OS_IMP_XL_ENGINE, Engine.OS_BASE_XXL_ENGINE,
-          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
+          Engine.OS_STD_FUSION_ENGINE, Engine.OS_ADV_LIGHT_ENGINE, Engine.OS_IMP_XXL_ENGINE,
+          Engine.OS_IMP_COMPACT_ENGINE, Engine.OS_ADV_COMPACT_ENGINE,
+          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
     };
 
     // Internal structure for non-industrial Meks
@@ -213,7 +221,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     final private JComboBox<String> cbBaseType = new JComboBox<>();
     final private JComboBox<String> cbMotiveType = new JComboBox<>();
     final private TechComboBox<EquipmentType> cbStructure = new TechComboBox<>(EquipmentType::getName);
-    final private TechComboBox<Engine> cbEngine = new TechComboBox<>(e -> e.getEngineName().replaceAll("^\\d+ ", ""));
+    final private TechComboBox<Engine> cbEngine = new TechComboBox<>(this::engineDisplayName);
     final private CustomComboBox<Integer> cbGyro = new CustomComboBox<>(Mek::getGyroTypeShortString);
     final private CustomComboBox<Integer> cbCockpit = new CustomComboBox<>(i -> Mek.getCockpitTypeString(i,
           isIndustrial()));
@@ -664,6 +672,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
 
     private void refreshEngine() {
         cbEngine.removeActionListener(this);
+        // In mixed tech, prefix engine names with their tech base (IS/Clan/OS), matching the other combos
+        cbEngine.showTechBase(techManager.useMixedTech());
         Engine prevEngine = (Engine) cbEngine.getSelectedItem();
         cbEngine.removeAllItems();
         for (Engine e : getAvailableEngines()) {
@@ -674,6 +684,19 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         if (cbEngine.getSelectedIndex() < 0) {
             cbEngine.setSelectedIndex(0);
         }
+    }
+
+    /**
+     * Display name for the engine combo. Strips the leading rating. In an Outer Sphere tech base the
+     * generic (tech base ALL) standard fusion is labeled "Fusion (IS)" to distinguish it from the
+     * OS standard fusion, which the {@link TechComboBox} renders as "Fusion" (pure OS) or "OS Fusion"
+     * (mixed OS).
+     */
+    private String engineDisplayName(Engine e) {
+        if (techManager.useOSTechBase() && (e.getEngineType() == Engine.NORMAL_ENGINE)) {
+            return "Fusion (IS)";
+        }
+        return e.getEngineName().replaceAll("^\\d+ ", "");
     }
 
     private void refreshGyro() {
