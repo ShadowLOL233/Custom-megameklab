@@ -95,7 +95,9 @@ public class CVChassisView extends BuildView implements ActionListener, ChangeLi
     // Engines that can be used by meks and the order they appear in the combobox
     private final static int[] ENGINE_TYPES = {
           Engine.COMBUSTION_ENGINE, Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE,
-          Engine.FUEL_CELL, Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION
+          Engine.FUEL_CELL, Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION,
+          // OS low-cost non-fusion engines (legality-filtered to Outer Sphere tech base)
+          Engine.OS_IMPROVE_ICE_ENGINE, Engine.OS_HYBRID_ENGINE
     };
     private final Engine NO_ENGINE = new Engine(0, Engine.NONE, Engine.TANK_ENGINE);
 
