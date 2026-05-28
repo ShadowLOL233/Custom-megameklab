@@ -1220,6 +1220,14 @@ public class UnitUtil {
         if (name.length() > 22 && !(eq instanceof AmmoType)) {
             name = eq.getShortName();
         }
+        // Outer Sphere equipment in mixed tech: ammo renders as "<weapon> (OS) Ammo",
+        // everything else gets a trailing " (OS)".
+        if (unit.isMixedTech() && (eq.getTechBase() == TechBase.OUTER_SPHERE)) {
+            if (eq instanceof AmmoType) {
+                return eq.getShortName() + " (OS) Ammo";
+            }
+            return name + " (OS)";
+        }
         if (unit.isMixedTech() &&
               (eq.getTechLevel(unit.getTechLevelYear()) != TechConstants.T_ALLOWED_ALL) &&
               (eq.getTechLevel(unit.getTechLevelYear()) != TechConstants.T_TECH_UNKNOWN)) {
