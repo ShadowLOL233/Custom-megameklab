@@ -155,6 +155,21 @@ public class StringUtils {
                 info = "  [E]";
             } else if (weapon instanceof ISC3RemoteSensorLauncher) {
                 info = "  [M,E]";
+            } else if (weapon.hasFlag(WeaponType.F_PPC_ROTARY)) {
+                // Rotary PPC family — mirrors the UAC "/Sht [DB,R/C]" convention but with
+                // Direct Energy class. Variable-damage subclasses (Snub-Nose) print the
+                // range-graded S/M/L profile before the /Sht suffix, like ISSnubNosePPC's
+                // "10/8/5 [DE,V]" but with the rotary R/C marker appended.
+                // Checked before the generic damage<0 branch so DAMAGE_VARIABLE Rotary PPCs
+                // don't fall through to the rack-size fallback.
+                if (weapon.getDamage() < 0) {
+                    info = String.format("%d/%d/%d/Sht [DE,V,R/C]",
+                          weapon.getDamage(weapon.getShortRange()),
+                          weapon.getDamage(weapon.getMediumRange()),
+                          weapon.getDamage(weapon.getLongRange()));
+                } else {
+                    info = weapon.getDamage() + "/Sht [DE,R/C]";
+                }
             } else if (weapon.getDamage() < 0) {
                 if (weapon instanceof StreakSRMWeapon) {
                     info = "2/Msl [M,C]";
@@ -211,12 +226,6 @@ public class StringUtils {
             } else if (weapon instanceof UACWeapon) {
                 info = Integer.toString(weapon.getDamage());
                 info += "/Sht [DB,R/C]";
-            } else if (weapon.hasFlag(WeaponType.F_PPC_ROTARY)) {
-                // Rotary PPC family — mirrors the UAC "/Sht [DB,R/C]" convention but with
-                // Direct Energy class. Per-shot damage × 1-6 sub-bolts using cluster table;
-                // 4+ shot modes consume RPPC Coolant Pod charges to suppress heat.
-                info = Integer.toString(weapon.getDamage());
-                info += "/Sht [DE,R/C]";
             } else if ((weapon instanceof ISVehicularGrenadeLauncher)) {
                 info = "[AE,OS]";
             } else {
