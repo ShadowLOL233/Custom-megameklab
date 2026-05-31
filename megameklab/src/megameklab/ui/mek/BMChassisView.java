@@ -122,7 +122,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
           Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
           Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
+          Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
           Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
     };
     // OS superheavy Meks also get the superheavy variants
@@ -132,7 +132,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
           Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
           Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
+          Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
           Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
           Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
     };
@@ -144,7 +144,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
           Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
           Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
+          Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
           Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
     };
     // Mixed OS superheavy: same but with SH variants
@@ -155,7 +155,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
           Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
           Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
+          Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
           Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
           Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
     };
