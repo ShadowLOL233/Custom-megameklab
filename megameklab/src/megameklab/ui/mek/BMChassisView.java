@@ -115,49 +115,54 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] LAM_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.COMPACT_ENGINE
     };
-    // OS Meks: OS engines + IS Fusion/XL as baseline options
+    // OS Meks: OS engines + canon Fusion (IS) as baseline.
+    // Order: Fusion -> Light -> XL -> XXL -> Compact; tier within family: Std -> Improve -> Advance.
+    // (OS Standard Fusion retired; canon NORMAL_ENGINE serves as the basic Fusion option.)
     private final static int[] OS_ENGINE_TYPES = {
+          // canon baselines (kept for compatibility / explicit canon choice)
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
-          Engine.OS_ADVANCE_FUSION_ENGINE, Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
-          Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
-          Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
+          // Fusion family (Improve, Advance)
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
+          // Light Fusion family
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
+          // XL Fusion family
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
+          // XXL Fusion family
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
+          // Compact Fusion family
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
     };
-    // OS superheavy Meks also get the superheavy variants
+    // OS superheavy Meks also get the superheavy variants at the end.
     private final static int[] OS_SH_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
-          Engine.OS_ADVANCE_FUSION_ENGINE, Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
-          Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
-          Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
-          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
+          // Super Heavy family
+          Engine.OS_SH_STANDARD_ENGINE, Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
     // Mixed OS: all IS engine types + OS engine types (isLegal() handles Clan variants)
     private final static int[] OS_MIXED_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
-          Engine.OS_ADVANCE_FUSION_ENGINE, Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
-          Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
-          Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
     };
-    // Mixed OS superheavy: same but with SH variants
+    // Mixed OS superheavy: same plus SH variants at the end.
     private final static int[] OS_MIXED_SH_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
-          Engine.OS_ADVANCE_FUSION_ENGINE, Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_ADVANCE_XXL_ENGINE, Engine.OS_STANDARD_COMPACT_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_STANDARD_XL_ENGINE,
-          Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_STANDARD_XXL_ENGINE,
-          Engine.OS_STANDARD_FUSION_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE,
-          Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
-          Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE, Engine.OS_SH_STANDARD_ENGINE
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
+          Engine.OS_SH_STANDARD_ENGINE, Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
 
     // Internal structure for non-industrial Meks
