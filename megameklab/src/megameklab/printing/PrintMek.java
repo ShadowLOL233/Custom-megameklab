@@ -63,6 +63,7 @@ import megamek.common.units.QuadVee;
 import megamek.logging.MMLogger;
 import megameklab.printing.reference.*;
 import megameklab.util.CConfig;
+import megameklab.util.OSAbbreviator;
 import megameklab.util.RSScale;
 import megameklab.util.UnitUtil;
 import org.apache.batik.anim.dom.SVGDOMImplementation;
@@ -339,7 +340,7 @@ public class PrintMek extends PrintEntity {
             setTextField(MP_FLANK, formatQuadVeeFlank());
             setTextField(LBL_VEE_MODE, ((QuadVee) mek).getMotiveTypeString() + "s");
         }
-        setTextField(ENGINE_TYPE, mek.getEngine().getShortEngineName()
+        setTextField(ENGINE_TYPE, OSAbbreviator.abbreviate(mek.getEngine().getShortEngineName())
               .replaceAll("\\[.*]", "").trim());
     }
 
@@ -354,7 +355,8 @@ public class PrintMek extends PrintEntity {
     @Override
     protected void drawStructure() {
         if (mek.getStructureType() != EquipmentType.T_STRUCTURE_STANDARD) {
-            setTextField(STRUCTURE_TYPE, EquipmentType.getStructureTypeName(mek.getStructureType()));
+            setTextField(STRUCTURE_TYPE,
+                  OSAbbreviator.abbreviate(EquipmentType.getStructureTypeName(mek.getStructureType())));
         }
     }
 
