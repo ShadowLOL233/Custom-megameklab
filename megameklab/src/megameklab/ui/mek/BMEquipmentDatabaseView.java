@@ -37,6 +37,8 @@ import static megameklab.ui.util.EquipmentTableModel.*;
 import java.util.Collection;
 import java.util.List;
 
+import javax.swing.JOptionPane;
+
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.Mounted;
@@ -73,10 +75,14 @@ class BMEquipmentDatabaseView extends AbstractEquipmentDatabaseView {
             }
         } else if (isMisc && equip.hasFlag(MiscType.F_OS_PFD)
                 && getMek().getMisc().stream().anyMatch(m -> m.getType().hasFlag(MiscType.F_OS_ADV_PFD))) {
-            // Adv. PFD already installed — PFD and Adv. PFD are mutually exclusive
+            JOptionPane.showMessageDialog(this,
+                  "Cannot add PFD: Adv. PFD is already installed. The two are mutually exclusive.",
+                  "PFD / Adv. PFD conflict", JOptionPane.WARNING_MESSAGE);
         } else if (isMisc && equip.hasFlag(MiscType.F_OS_ADV_PFD)
                 && getMek().getMisc().stream().anyMatch(m -> m.getType().hasFlag(MiscType.F_OS_PFD))) {
-            // PFD already installed — PFD and Adv. PFD are mutually exclusive
+            JOptionPane.showMessageDialog(this,
+                  "Cannot add Adv. PFD: PFD is already installed. The two are mutually exclusive.",
+                  "PFD / Adv. PFD conflict", JOptionPane.WARNING_MESSAGE);
         } else if (isMisc && UnitUtil.isFixedLocationSpreadEquipment(equip)) {
             MekUtil.createSpreadMounts(getMek(), equip);
         } else {
