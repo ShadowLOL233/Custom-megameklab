@@ -697,6 +697,8 @@ public class UnitUtil {
                     type.hasFlag(MiscType.F_ARTEMIS_V) ||
                     type.hasFlag(MiscType.F_ARTEMIS_PROTO) ||
                     type.hasFlag(MiscType.F_APOLLO) ||
+                    type.hasFlag(MiscType.F_DIANA_III) ||
+                    type.hasFlag(MiscType.F_ORION_V) ||
                     type.hasFlag(MiscType.F_PPC_CAPACITOR) ||
                     type.hasFlag(MiscType.F_RISC_LASER_PULSE_MODULE));
     }
