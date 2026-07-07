@@ -122,24 +122,24 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
           // canon baselines (kept for compatibility / explicit canon choice)
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
           // Fusion family (Improve, Advance)
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ENHANCED_FUSION_ENGINE,
           // Light Fusion family
-          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ENHANCED_LIGHT_ENGINE,
           // XL Fusion family
-          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ENHANCED_XL_ENGINE,
           // XXL Fusion family
-          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ENHANCED_XXL_ENGINE,
           // Compact Fusion family
-          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ENHANCED_COMPACT_ENGINE
     };
     // OS superheavy Meks also get the superheavy variants at the end.
     private final static int[] OS_SH_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
-          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
-          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
-          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ENHANCED_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ENHANCED_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ENHANCED_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ENHANCED_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ENHANCED_COMPACT_ENGINE,
           // Super Heavy family
           Engine.OS_SH_STANDARD_ENGINE, Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
@@ -147,21 +147,21 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] OS_MIXED_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
-          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
-          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
-          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ENHANCED_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ENHANCED_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ENHANCED_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ENHANCED_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ENHANCED_COMPACT_ENGINE
     };
     // Mixed OS superheavy: same plus SH variants at the end.
     private final static int[] OS_MIXED_SH_ENGINE_TYPES = {
           Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL,
           Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE,
-          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ADVANCE_FUSION_ENGINE,
-          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ADVANCE_LIGHT_ENGINE,
-          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ADVANCE_XL_ENGINE,
-          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ADVANCE_XXL_ENGINE,
-          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ADVANCE_COMPACT_ENGINE,
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ENHANCED_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ENHANCED_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ENHANCED_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ENHANCED_XXL_ENGINE,
+          Engine.OS_STANDARD_COMPACT_ENGINE, Engine.OS_IMPROVE_COMPACT_ENGINE, Engine.OS_ENHANCED_COMPACT_ENGINE,
           Engine.OS_SH_STANDARD_ENGINE, Engine.OS_SH_XL_ENGINE, Engine.OS_SH_XXL_ENGINE
     };
 
@@ -182,14 +182,14 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] OS_STRUCTURE_TYPES = {
           EquipmentType.T_STRUCTURE_STANDARD,
           EquipmentType.T_STRUCTURE_OS_IMP_ENDO_STEEL,
-          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ENH_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_COMPOSITE,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE_ENDO_STEEL,
-          EquipmentType.T_STRUCTURE_OS_ADV_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ENH_REINFORCE_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_ENDO_COMPOSITE,
-          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_ENH_ENDO_COMPOSITE,
           EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY,
           EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY,
@@ -200,14 +200,14 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     private final static int[] OS_SH_STRUCTURE_TYPES = {
           EquipmentType.T_STRUCTURE_STANDARD,
           EquipmentType.T_STRUCTURE_OS_IMP_ENDO_STEEL,
-          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ENH_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_COMPOSITE,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_REINFORCE_ENDO_STEEL,
-          EquipmentType.T_STRUCTURE_OS_ADV_REINFORCE_ENDO_STEEL,
+          EquipmentType.T_STRUCTURE_OS_ENH_REINFORCE_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_IMP_ENDO_COMPOSITE,
-          EquipmentType.T_STRUCTURE_OS_ADV_ENDO_COMPOSITE,
+          EquipmentType.T_STRUCTURE_OS_ENH_ENDO_COMPOSITE,
           EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY,
           EquipmentType.T_STRUCTURE_OS_HEAVY_DUTY_ENDO_STEEL,
           EquipmentType.T_STRUCTURE_OS_REINFORCE_HEAVY_DUTY,
