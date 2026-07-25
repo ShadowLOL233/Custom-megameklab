@@ -259,6 +259,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
 
     private static final String[] ENHANCEMENT_NAMES = {
           EquipmentTypeLookup.IS_MASC, EquipmentTypeLookup.CLAN_MASC,
+          EquipmentTypeLookup.OS_MASC, EquipmentTypeLookup.OS_IMPROVE_MASC,
+          EquipmentTypeLookup.OS_HEAVY_DUTY_MASC,
           EquipmentTypeLookup.TSM, EquipmentTypeLookup.P_TSM, EquipmentTypeLookup.SCM
     };
 
