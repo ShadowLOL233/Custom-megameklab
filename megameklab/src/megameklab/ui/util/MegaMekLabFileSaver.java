@@ -34,14 +34,17 @@ package megameklab.ui.util;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Calendar;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import megamek.common.Configuration;
 import megamek.common.annotations.Nullable;
 import megamek.common.loaders.BLKFile;
+import megamek.common.preference.PreferenceManager;
 import megamek.common.units.Entity;
 import megamek.common.units.Mek;
 import megamek.logging.MMLogger;
@@ -133,12 +136,48 @@ public class MegaMekLabFileSaver {
         } else {
             saveUnitFileChooser.setFileFilter(new FileNameExtensionFilter("Unit files", "blk"));
         }
-        saveUnitFileChooser.setSelectedFile(new File(createUnitFilename(entity)));
+        File userUnitDir = userUnitDirectoryDefault();
+        if (userUnitDir != null) {
+            saveUnitFileChooser.setCurrentDirectory(userUnitDir);
+            saveUnitFileChooser.setSelectedFile(new File(userUnitDir, createUnitFilename(entity)));
+        } else {
+            saveUnitFileChooser.setSelectedFile(new File(createUnitFilename(entity)));
+        }
         int result = saveUnitFileChooser.showSaveDialog(ownerFrame);
         if ((result != JFileChooser.APPROVE_OPTION) || (saveUnitFileChooser.getSelectedFile() == null)) {
             return null;
         } else {
             return saveUnitFileChooser.getSelectedFile();
+        }
+    }
+
+    /**
+     * Custom units must live in the shared user directory (the {@code UserDir} preference) so that
+     * MegaMek scans and displays them. Returns that directory as the default save location, but only
+     * when the chooser's remembered directory is unset or points inside the bundled {@code data/}
+     * tree — saving a custom unit into {@code data/} hides it from MegaMek and risks being wiped by
+     * the build's data staging. Returns {@code null} to keep the remembered directory otherwise.
+     */
+    private @Nullable File userUnitDirectoryDefault() {
+        String userDir = PreferenceManager.getClientPreferences().getUserDir();
+        if ((userDir == null) || userDir.isBlank()) {
+            return null;
+        }
+        File userDirFile = new File(userDir);
+        if (!userDirFile.isDirectory()) {
+            return null;
+        }
+        File current = saveUnitFileChooser.getCurrentDirectory();
+        return ((current == null) || isInsideDataDirectory(current)) ? userDirFile : null;
+    }
+
+    private static boolean isInsideDataDirectory(File directory) {
+        try {
+            String canonical = directory.getCanonicalPath();
+            String dataDir = Configuration.dataDir().getCanonicalPath();
+            return canonical.equals(dataDir) || canonical.startsWith(dataDir + File.separator);
+        } catch (IOException ignored) {
+            return false;
         }
     }
 
