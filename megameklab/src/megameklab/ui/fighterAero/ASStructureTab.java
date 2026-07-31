@@ -359,7 +359,18 @@ public class ASStructureTab extends ITab implements AeroBuildListener, ArmorAllo
 
     @Override
     public void techBaseChanged(boolean clan, boolean mixed) {
-        if ((clan != getAero().isClan()) || (mixed != getAero().isMixedTech())) {
+        techBaseChanged(clan, mixed, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion) {
+        techBaseChanged(clan, mixed, legion, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        if ((clan != getAero().isClan()) || (mixed != getAero().isMixedTech())
+              || (legion != getAero().isOuterSphere()) || (ascended != getAero().isAscended())) {
             getAero().setMixedTech(mixed);
             updateTechLevel();
         }
@@ -373,7 +384,13 @@ public class ASStructureTab extends ITab implements AeroBuildListener, ArmorAllo
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getAero().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        if (panInfo.useAscendedTechBase()) {
+            getAero().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panInfo.useOSTechBase()) {
+            getAero().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getAero().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        }
         if (panArmor.isPatchwork() && !getTechManager().isLegal(Entity.getPatchworkArmorAdvancement())) {
             panArmor.setPatchwork(false);
             armorTypeChanged(panArmor.getArmorType(), panArmor.getArmorTechConstant());

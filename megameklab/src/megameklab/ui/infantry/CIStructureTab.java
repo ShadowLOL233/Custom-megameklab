@@ -329,7 +329,13 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
         if (!basicInfoView.isLegal(getInfantry().getMotiveTechAdvancement())) {
             motiveTypeChanged(EntityMovementMode.INF_LEG, false);
         }
-        getInfantry().setTechLevel(basicInfoView.getTechLevel().getCompoundTechLevel(basicInfoView.useClanTechBase()));
+        if (basicInfoView.useAscendedTechBase()) {
+            getInfantry().setTechLevel(basicInfoView.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (basicInfoView.useOSTechBase()) {
+            getInfantry().setTechLevel(basicInfoView.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getInfantry().setTechLevel(basicInfoView.getTechLevel().getCompoundTechLevel(basicInfoView.useClanTechBase()));
+        }
         UnitUtil.checkEquipmentByTechLevel(getInfantry(), basicInfoView);
         InfantryUtil.resetInfantryArmor(getInfantry());
         platoonTypeView.setFromEntity(getInfantry());
@@ -357,7 +363,18 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
 
     @Override
     public void techBaseChanged(boolean clan, boolean mixed) {
-        if ((clan != getInfantry().isClan()) || (mixed != getInfantry().isMixedTech())) {
+        techBaseChanged(clan, mixed, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion) {
+        techBaseChanged(clan, mixed, legion, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        if ((clan != getInfantry().isClan()) || (mixed != getInfantry().isMixedTech())
+              || (legion != getInfantry().isOuterSphere()) || (ascended != getInfantry().isAscended())) {
             getInfantry().setMixedTech(mixed);
             updateTechLevel();
         }

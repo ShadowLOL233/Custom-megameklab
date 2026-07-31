@@ -348,7 +348,18 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
 
     @Override
     public void techBaseChanged(boolean clan, boolean mixed) {
-        if ((clan != getTank().isClan()) || (mixed != getTank().isMixedTech())) {
+        techBaseChanged(clan, mixed, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion) {
+        techBaseChanged(clan, mixed, legion, false);
+    }
+
+    @Override
+    public void techBaseChanged(boolean clan, boolean mixed, boolean legion, boolean ascended) {
+        if ((clan != getTank().isClan()) || (mixed != getTank().isMixedTech())
+              || (legion != getTank().isOuterSphere()) || (ascended != getTank().isAscended())) {
             getTank().setMixedTech(mixed);
             updateTechLevel();
         }
@@ -362,7 +373,13 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getTank().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getTank().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getTank().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getTank().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (panArmor.isPatchwork() && !getTechManager().isLegal(Entity.getPatchworkArmorAdvancement())) {
             panArmor.setPatchwork(false);
             armorTypeChanged(panArmor.getArmorType(), panArmor.getArmorTechConstant());
