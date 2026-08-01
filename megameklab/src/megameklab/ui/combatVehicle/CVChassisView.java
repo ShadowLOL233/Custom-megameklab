@@ -97,7 +97,14 @@ public class CVChassisView extends BuildView implements ActionListener, ChangeLi
           Engine.COMBUSTION_ENGINE, Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE,
           Engine.FUEL_CELL, Engine.LIGHT_ENGINE, Engine.COMPACT_ENGINE, Engine.FISSION,
           // OS low-cost non-fusion engines (legality-filtered to Outer Sphere tech base)
-          Engine.OS_IMPROVE_ICE_ENGINE, Engine.OS_HYBRID_ENGINE
+          Engine.OS_IMPROVE_ICE_ENGINE, Engine.OS_HYBRID_ENGINE,
+          // OS fusion families that mirror canon vehicle-legal engine classes (Fusion / Light / XL / XXL).
+          // OS Compact (canon Compact is Mek-oriented) and OS superheavy engines are intentionally excluded.
+          // Standard OS fusion is the generic NORMAL_ENGINE on the OS tech base, already listed above.
+          Engine.OS_IMPROVE_FUSION_ENGINE, Engine.OS_ENHANCED_FUSION_ENGINE,
+          Engine.OS_STANDARD_LIGHT_ENGINE, Engine.OS_IMPROVE_LIGHT_ENGINE, Engine.OS_ENHANCED_LIGHT_ENGINE,
+          Engine.OS_STANDARD_XL_ENGINE, Engine.OS_IMPROVE_XL_ENGINE, Engine.OS_ENHANCED_XL_ENGINE,
+          Engine.OS_STANDARD_XXL_ENGINE, Engine.OS_IMPROVE_XXL_ENGINE, Engine.OS_ENHANCED_XXL_ENGINE
     };
     private final Engine NO_ENGINE = new Engine(0, Engine.NONE, Engine.TANK_ENGINE);
 
