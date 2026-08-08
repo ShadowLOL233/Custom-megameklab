@@ -36,10 +36,14 @@ import java.awt.BorderLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
@@ -51,6 +55,7 @@ import megamek.common.enums.Faction;
 import megamek.common.equipment.ArmorType;
 import megamek.common.equipment.Engine;
 import megamek.common.equipment.EquipmentType;
+import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.Mounted;
@@ -97,6 +102,12 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
     private PatchworkArmorView panPatchwork;
     private CVTransportView panTransport;
     private IconView iconView;
+
+    // Combat-vehicle heat sink type selector. Vehicles auto-derive the sink count (heat-neutral), so only the type is
+    // chosen here; the parallel list holds each option's equipment internal name.
+    private final JComboBox<String> cbHeatSinkType = new JComboBox<>();
+    private final List<String> heatSinkTypeNames = new ArrayList<>();
+    private final ActionListener heatSinkListener = e -> heatSinkTypeChanged();
 
     public CVStructureTab(EntitySource eSource) {
         super(eSource);
@@ -161,6 +172,8 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
         leftPanel.add(panChassis);
         leftPanel.add(Box.createVerticalStrut(6));
         leftPanel.add(panMovement);
+        leftPanel.add(Box.createVerticalStrut(6));
+        leftPanel.add(createHeatSinkPanel());
         leftPanel.add(Box.createGlue());
 
         midPanel.add(panTransport);
@@ -196,6 +209,7 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
 
     public void refresh() {
         removeAllListeners();
+        cbHeatSinkType.removeActionListener(heatSinkListener);
 
         panBasicInfo.setFromEntity(getTank());
         panChassis.setFromEntity(getTank());
@@ -208,7 +222,49 @@ public class CVStructureTab extends ITab implements CVBuildListener, ArmorAlloca
 
         panSummary.refresh();
 
+        if (cbHeatSinkType.getItemCount() > 0) {
+            int hsIndex = heatSinkTypeNames.indexOf(getTank().getHeatSinkTypeName());
+            cbHeatSinkType.setSelectedIndex(Math.max(0, hsIndex));
+        }
+
+        cbHeatSinkType.addActionListener(heatSinkListener);
         addAllListeners();
+    }
+
+    private JPanel createHeatSinkPanel() {
+        populateHeatSinkTypes();
+        JPanel panHeatSink = new JPanel();
+        panHeatSink.setBorder(BorderFactory.createTitledBorder("Heat Sinks"));
+        panHeatSink.add(new JLabel("Type:"));
+        panHeatSink.add(cbHeatSinkType);
+        return panHeatSink;
+    }
+
+    /** Fills the heat sink type combo with the vehicle-legal options and their parallel equipment internal names. */
+    private void populateHeatSinkTypes() {
+        heatSinkTypeNames.clear();
+        cbHeatSinkType.removeAllItems();
+        // Combat vehicles use single heat sinks or the vehicle-capable Compact Double Heat Sink; standard and OS
+        // double/triple/quad sinks are too bulky for vehicles and are intentionally omitted.
+        for (String internalName : List.of(EquipmentTypeLookup.SINGLE_HS, EquipmentTypeLookup.COMPACT_DOUBLE_HS)) {
+            EquipmentType hs = EquipmentType.get(internalName);
+            if (hs != null) {
+                heatSinkTypeNames.add(internalName);
+                cbHeatSinkType.addItem(hs.getName());
+            }
+        }
+    }
+
+    private void heatSinkTypeChanged() {
+        int idx = cbHeatSinkType.getSelectedIndex();
+        if ((idx < 0) || (idx >= heatSinkTypeNames.size())) {
+            return;
+        }
+        getTank().setHeatSinkTypeName(heatSinkTypeNames.get(idx));
+        if (refresh != null) {
+            refresh.refreshStructure();
+            refresh.refreshStatus();
+        }
     }
 
     public ITechManager getTechManager() {
