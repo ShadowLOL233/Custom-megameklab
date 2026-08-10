@@ -202,7 +202,13 @@ class GEStructureTab extends ITab implements HHWBuildListener, BuildListener {
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (UnitUtil.checkEquipmentByTechLevel(getEntity(), panBasicInfo)) {
             refresh.refreshEquipment();
         } else {

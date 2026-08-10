@@ -490,7 +490,13 @@ public class BAStructureTab extends ITab
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getBattleArmor().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getBattleArmor().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getBattleArmor().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getBattleArmor().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (UnitUtil.checkEquipmentByTechLevel(getBattleArmor(), panBasicInfo)) {
             refresh.refreshEquipment();
         } else {

@@ -276,8 +276,13 @@ public class SVStructureTab extends ITab implements SVBuildListener {
 
     @Override
     public void updateTechLevel() {
-        getEntity().setTechLevel(panBasicInfo.getTechLevel()
-              .getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getEntity().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (UnitUtil.checkEquipmentByTechLevel(getSV(), panBasicInfo)) {
             refresh.refreshEquipment();
         } else {

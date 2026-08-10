@@ -310,7 +310,13 @@ public class WSStructureTab extends ITab implements AdvancedAeroBuildListener, A
 
     @Override
     public void updateTechLevel() {
-        getJumpship().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        if (panInfo.useAscendedTechBase()) {
+            getJumpship().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panInfo.useOSTechBase()) {
+            getJumpship().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getJumpship().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        }
         if (UnitUtil.checkEquipmentByTechLevel(getJumpship(), panInfo)) {
             refresh.refreshEquipment();
         } else {

@@ -401,7 +401,13 @@ public class PMStructureTab extends ITab implements ProtoMekBuildListener, Armor
     @Override
     public void updateTechLevel() {
         removeAllListeners();
-        getProtoMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        if (panBasicInfo.useAscendedTechBase()) {
+            getProtoMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panBasicInfo.useOSTechBase()) {
+            getProtoMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getProtoMek().setTechLevel(panBasicInfo.getTechLevel().getCompoundTechLevel(panBasicInfo.useClanTechBase()));
+        }
         if (!getTechManager().isLegal(panArmor.getArmor())) {
             UnitUtil.removeISorArmorMounts(getProtoMek(), false);
         }

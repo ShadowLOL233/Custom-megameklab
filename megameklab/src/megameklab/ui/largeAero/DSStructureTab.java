@@ -299,7 +299,13 @@ public class DSStructureTab extends ITab implements DropshipBuildListener, Armor
 
     @Override
     public void updateTechLevel() {
-        getSmallCraft().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        if (panInfo.useAscendedTechBase()) {
+            getSmallCraft().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, false, true));
+        } else if (panInfo.useOSTechBase()) {
+            getSmallCraft().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(false, true));
+        } else {
+            getSmallCraft().setTechLevel(panInfo.getTechLevel().getCompoundTechLevel(panInfo.useClanTechBase()));
+        }
         if (UnitUtil.checkEquipmentByTechLevel(getSmallCraft(), panInfo)) {
             refresh.refreshEquipment();
         } else {
