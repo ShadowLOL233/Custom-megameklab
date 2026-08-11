@@ -233,7 +233,8 @@ public class CVMainUI extends MegaMekLabMainUI {
             newUnit.setMovementMode(oldEntity.getMovementMode());
             newUnit.setWeight(
                   Math.min(newUnit.getWeight(),
-                        TestTank.maxTonnage(newUnit.getMovementMode(), newUnit.isSuperHeavy())));
+                        TestTank.maxTonnage(newUnit.getMovementMode(), newUnit.isSuperHeavy(),
+                              newUnit.isOuterSphere())));
             if (newUnit.isSuperHeavy()) {
                 newUnit.setWeight(
                       Math.max(newUnit.getWeight(), TestTank.maxTonnage(newUnit.getMovementMode(), false) + 1.0));

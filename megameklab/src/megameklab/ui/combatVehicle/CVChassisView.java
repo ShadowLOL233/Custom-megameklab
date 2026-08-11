@@ -358,7 +358,7 @@ public class CVChassisView extends BuildView implements ActionListener, ChangeLi
 
     private void refreshTonnage() {
         spnTonnage.removeChangeListener(this);
-        int max = (int) TestTank.maxTonnage(getMovementMode(), isSuperheavy());
+        int max = (int) TestTank.maxTonnage(getMovementMode(), isSuperheavy(), techManager.useOSTechBase());
         int min = 1;
         if (isSuperheavy()) {
             min = (int) TestTank.maxTonnage(getMovementMode(), false) + 1;
