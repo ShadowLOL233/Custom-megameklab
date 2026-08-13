@@ -44,6 +44,7 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -115,6 +116,11 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
 
     protected final JTextField txtFilter = new JTextField("", 15);
     private final JButton tableModeButton = new JButton("Switch Table Columns");
+    private final JButton infoButton = new JButton("Info");
+    private EquipmentType selectedEquipment;
+    private static final int INFO_TOOLTIP_DELAY_MS = 4000;
+    private final int defaultTooltipDelay = ToolTipManager.sharedInstance().getInitialDelay();
+    private int lastTooltipRow = -1;
     private boolean tableMode = true;
 
     private final Map<JToggleButton, EquipmentDatabaseCategory> filterToggles = Map.of(showEnergyButton, ENERGY,
@@ -166,8 +172,10 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
             if (selected >= 0) {
                 etype = masterEquipmentModel.getType(masterEquipmentTable.convertRowIndexToModel(selected));
             }
+            selectedEquipment = etype;
             addButton.setEnabled(canLegallyBeAddedToUnit(etype));
             addMultipleButton.setEnabled(canLegallyBeAddedToUnit(etype));
+            infoButton.setEnabled((etype != null) && !etype.getFlavorDescription().isBlank());
         });
         // Double-clicking adds the clicked equipment
         masterEquipmentTable.addMouseListener(new MouseAdapter() {
@@ -176,6 +184,46 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
                 if (e.getClickCount() == 2) {
                     addSelectedEquipment(1);
                 }
+            }
+        });
+        // Config-gated long-hover info tooltip: set the hovered row's description as the table tooltip, shown after
+        // a longer-than-normal delay. The longer delay is applied only while the pointer is over this table.
+        masterEquipmentTable.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                if (!CConfig.getBooleanParam(CConfig.MISC_EQUIPMENT_INFO_TOOLTIP)) {
+                    masterEquipmentTable.setToolTipText(null);
+                    lastTooltipRow = -1;
+                    return;
+                }
+                int viewRow = masterEquipmentTable.rowAtPoint(e.getPoint());
+                if (viewRow == lastTooltipRow) {
+                    return;
+                }
+                lastTooltipRow = viewRow;
+                String tip = null;
+                if (viewRow >= 0) {
+                    EquipmentType etype = masterEquipmentModel.getType(
+                          masterEquipmentTable.convertRowIndexToModel(viewRow));
+                    if ((etype != null) && !etype.getFlavorDescription().isBlank()) {
+                        tip = "<html><body style='width: 360px'>" + htmlEscape(etype.getFlavorDescription())
+                              + "</body></html>";
+                    }
+                }
+                masterEquipmentTable.setToolTipText(tip);
+            }
+        });
+        masterEquipmentTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (CConfig.getBooleanParam(CConfig.MISC_EQUIPMENT_INFO_TOOLTIP)) {
+                    ToolTipManager.sharedInstance().setInitialDelay(INFO_TOOLTIP_DELAY_MS);
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                ToolTipManager.sharedInstance().setInitialDelay(defaultTooltipDelay);
             }
         });
     }
@@ -418,6 +466,11 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
                 miscPanel.add(Box.createHorizontalStrut(15));
             }
         }
+        infoButton.setEnabled(false);
+        infoButton.setToolTipText("Show a description of the selected equipment, when available");
+        infoButton.addActionListener(e -> showEquipmentInfo());
+        miscPanel.add(infoButton);
+        miscPanel.add(Box.createHorizontalStrut(15));
         if (useTextFilter()) {
             txtFilter.getDocument().addDocumentListener(new DocumentListener() {
                 @Override
@@ -451,6 +504,26 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         miscPanel.setOpaque(true);
         miscPanel.setBorder(new EmptyBorder(0, 8, 0, 8));
         return miscPanel;
+    }
+
+    /** Shows a popup with the selected equipment's authored description (see EquipmentType#getFlavorDescription). */
+    private void showEquipmentInfo() {
+        EquipmentType etype = selectedEquipment;
+        if ((etype == null) || etype.getFlavorDescription().isBlank()) {
+            return;
+        }
+        JTextArea textArea = new JTextArea(etype.getFlavorDescription());
+        textArea.setLineWrap(true);
+        textArea.setWrapStyleWord(true);
+        textArea.setEditable(false);
+        textArea.setCaretPosition(0);
+        JScrollPane scroll = new JScrollPane(textArea);
+        scroll.setPreferredSize(new Dimension(480, 200));
+        JOptionPane.showMessageDialog(this, scroll, etype.getName(), JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static String htmlEscape(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /**

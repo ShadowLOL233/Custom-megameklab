@@ -70,6 +70,7 @@ public class MiscSettingsPanel extends JPanel {
     private final JCheckBox chkApplicationExitPrompt = new JCheckBox();
     private final JCheckBox chkSkipSavePrompts = new JCheckBox();
     private final JCheckBox chkIncludeLicense = new JCheckBox();
+    private final JCheckBox chkEquipmentInfoTooltip = new JCheckBox();
     private final JTextField txtUserDir = new JTextField(20);
     private final JSlider guiScale = new JSlider();
     private final MMComboBox<MulDndBehaviour> cbMulOpenBehaviour = new MMComboBox<>("MUL Drag and Drop behaviour",
@@ -144,6 +145,12 @@ public class MiscSettingsPanel extends JPanel {
         chkIncludeLicense.setToolTipText(resources.getString("ConfigurationDialog.chkIncludeLicense.tooltip"));
         chkIncludeLicense.setSelected(CConfig.includeLicense());
 
+        chkEquipmentInfoTooltip.setText("Show equipment info tooltip on long hover");
+        chkEquipmentInfoTooltip.setToolTipText(
+              "When enabled, hovering ~4s over an equipment row in the equipment browser shows its description "
+                    + "(only for items that have one).");
+        chkEquipmentInfoTooltip.setSelected(CConfig.getBooleanParam(CConfig.MISC_EQUIPMENT_INFO_TOOLTIP));
+
         guiScale.setMajorTickSpacing(3);
         guiScale.setMinimum(7);
         guiScale.setMaximum(24);
@@ -171,9 +178,10 @@ public class MiscSettingsPanel extends JPanel {
         gridPanel.add(chkSummaryFormatTRO);
         gridPanel.add(chkSkipSavePrompts);
         gridPanel.add(chkIncludeLicense);
+        gridPanel.add(chkEquipmentInfoTooltip);
         gridPanel.add(scaleLine);
 
-        SpringUtilities.makeCompactGrid(gridPanel, 8, 1, 0, 0, 15, 10);
+        SpringUtilities.makeCompactGrid(gridPanel, 9, 1, 0, 0, 15, 10);
         gridPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
         setLayout(new FlowLayout(FlowLayout.LEFT));
         add(gridPanel);
@@ -185,6 +193,7 @@ public class MiscSettingsPanel extends JPanel {
         miscSettings.put(CConfig.MISC_SUMMARY_FORMAT_TRO, String.valueOf(chkSummaryFormatTRO.isSelected()));
         miscSettings.put(CConfig.MISC_SKIP_SAFETY_PROMPTS, String.valueOf(chkSkipSavePrompts.isSelected()));
         miscSettings.put(CConfig.MISC_INCLUDE_LICENSE, String.valueOf(chkIncludeLicense.isSelected()));
+        miscSettings.put(CConfig.MISC_EQUIPMENT_INFO_TOOLTIP, String.valueOf(chkEquipmentInfoTooltip.isSelected()));
         MMLStartUp startUp = startUpMMComboBox.getSelectedItem() == null
               ? MMLStartUp.SPLASH_SCREEN
               : startUpMMComboBox.getSelectedItem();
