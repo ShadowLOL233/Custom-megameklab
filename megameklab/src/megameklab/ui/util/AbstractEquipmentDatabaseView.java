@@ -36,8 +36,13 @@ import static megameklab.ui.util.EquipmentDatabaseCategory.*;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -118,7 +123,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
     private final JButton tableModeButton = new JButton("Switch Table Columns");
     private final JButton infoButton = new JButton("Info");
     private EquipmentType selectedEquipment;
-    private static final int INFO_TOOLTIP_DELAY_MS = 4000;
+    private static final int INFO_TOOLTIP_DELAY_MS = 1000;
     private final int defaultTooltipDelay = ToolTipManager.sharedInstance().getInitialDelay();
     private int lastTooltipRow = -1;
     private boolean tableMode = true;
@@ -177,12 +182,14 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
             addMultipleButton.setEnabled(canLegallyBeAddedToUnit(etype));
             infoButton.setEnabled((etype != null) && !etype.getFlavorDescription().isBlank());
         });
-        // Double-clicking adds the clicked equipment
+        // Single left-click on the info marker (ⓘ) opens the info window; double-click adds the equipment
         masterEquipmentTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     addSelectedEquipment(1);
+                } else if ((e.getClickCount() == 1) && SwingUtilities.isLeftMouseButton(e)) {
+                    showInfoIfIconClicked(e);
                 }
             }
         });
@@ -468,7 +475,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         }
         infoButton.setEnabled(false);
         infoButton.setToolTipText("Show a description of the selected equipment, when available");
-        infoButton.addActionListener(e -> showEquipmentInfo());
+        infoButton.addActionListener(e -> showEquipmentInfo(selectedEquipment));
         miscPanel.add(infoButton);
         miscPanel.add(Box.createHorizontalStrut(15));
         if (useTextFilter()) {
@@ -506,20 +513,75 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         return miscPanel;
     }
 
-    /** Shows a popup with the selected equipment's authored description (see EquipmentType#getFlavorDescription). */
-    private void showEquipmentInfo() {
-        EquipmentType etype = selectedEquipment;
+    /**
+     * If the given left-click landed on the info marker (ⓘ) at the start of the Name cell of an equipment that has an
+     * authored description, opens the info window for it. Clicks elsewhere are ignored (normal selection still applies).
+     */
+    private void showInfoIfIconClicked(MouseEvent e) {
+        int viewRow = masterEquipmentTable.rowAtPoint(e.getPoint());
+        int viewCol = masterEquipmentTable.columnAtPoint(e.getPoint());
+        if ((viewRow < 0) || (viewCol < 0)
+              || (masterEquipmentTable.convertColumnIndexToModel(viewCol) != EquipmentTableModel.COL_NAME)) {
+            return;
+        }
+        EquipmentType etype = masterEquipmentModel.getType(masterEquipmentTable.convertRowIndexToModel(viewRow));
         if ((etype == null) || etype.getFlavorDescription().isBlank()) {
             return;
         }
-        JTextArea textArea = new JTextArea(etype.getFlavorDescription());
-        textArea.setLineWrap(true);
-        textArea.setWrapStyleWord(true);
-        textArea.setEditable(false);
-        textArea.setCaretPosition(0);
-        JScrollPane scroll = new JScrollPane(textArea);
-        scroll.setPreferredSize(new Dimension(480, 200));
-        JOptionPane.showMessageDialog(this, scroll, etype.getName(), JOptionPane.INFORMATION_MESSAGE);
+        // The Name renderer prefixes "ⓘ " only for equipment with a description; the marker sits at the cell's left edge.
+        Rectangle cellRect = masterEquipmentTable.getCellRect(viewRow, viewCol, false);
+        FontMetrics fm = masterEquipmentTable.getFontMetrics(masterEquipmentTable.getFont());
+        int markerWidth = fm.stringWidth("ⓘ ") + UIUtil.scaleForGUI(6);
+        if ((e.getX() - cellRect.x) <= markerWidth) {
+            showEquipmentInfo(etype);
+        }
+    }
+
+    /**
+     * Shows a modal, neatly formatted window with the equipment's authored description (see
+     * EquipmentType#getFlavorDescription), styled after the lobby Force View formation info popup.
+     */
+    private void showEquipmentInfo(EquipmentType etype) {
+        if ((etype == null) || etype.getFlavorDescription().isBlank()) {
+            return;
+        }
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner, etype.getName(), Dialog.ModalityType.APPLICATION_MODAL);
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.PAGE_AXIS));
+        content.setBorder(new EmptyBorder(UIUtil.scaleForGUI(14), UIUtil.scaleForGUI(18),
+              UIUtil.scaleForGUI(12), UIUtil.scaleForGUI(18)));
+
+        JLabel title = new JLabel(etype.getName());
+        title.setFont(title.getFont().deriveFont(Font.BOLD, UIUtil.scaleForGUI(18)));
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(title);
+        content.add(Box.createVerticalStrut(UIUtil.scaleForGUI(12)));
+
+        JLabel body = new JLabel("<html><div width='" + UIUtil.scaleForGUI(420) + "'>"
+              + htmlEscape(etype.getFlavorDescription()) + "</div></html>");
+        body.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(body);
+
+        JButton dismiss = new JButton("DISMISS");
+        dismiss.addActionListener(ev -> dialog.dispose());
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttons.add(dismiss);
+
+        JPanel root = new JPanel(new BorderLayout());
+        JScrollPane scroll = new JScrollPane(content);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(UIUtil.scaleForGUI(16));
+        root.add(scroll, BorderLayout.CENTER);
+        root.add(buttons, BorderLayout.SOUTH);
+
+        dialog.setContentPane(root);
+        dialog.pack();
+        dialog.setSize(UIUtil.scaleForGUI(480),
+              Math.min(dialog.getHeight() + UIUtil.scaleForGUI(4), UIUtil.scaleForGUI(580)));
+        dialog.setLocationRelativeTo(owner);
+        dialog.setVisible(true);
     }
 
     private static String htmlEscape(String s) {

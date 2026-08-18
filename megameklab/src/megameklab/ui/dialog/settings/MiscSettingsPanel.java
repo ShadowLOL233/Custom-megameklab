@@ -145,9 +145,9 @@ public class MiscSettingsPanel extends JPanel {
         chkIncludeLicense.setToolTipText(resources.getString("ConfigurationDialog.chkIncludeLicense.tooltip"));
         chkIncludeLicense.setSelected(CConfig.includeLicense());
 
-        chkEquipmentInfoTooltip.setText("Show equipment info tooltip on long hover");
+        chkEquipmentInfoTooltip.setText("Show equipment info tooltip on hover");
         chkEquipmentInfoTooltip.setToolTipText(
-              "When enabled, hovering ~4s over an equipment row in the equipment browser shows its description "
+              "When enabled, hovering ~1s over an equipment row in the equipment browser shows its description "
                     + "(only for items that have one).");
         chkEquipmentInfoTooltip.setSelected(CConfig.getBooleanParam(CConfig.MISC_EQUIPMENT_INFO_TOOLTIP));
 

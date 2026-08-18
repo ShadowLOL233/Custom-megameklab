@@ -533,7 +533,13 @@ public class EquipmentTableModel extends AbstractTableModel {
             EquipmentType etype = ((EquipmentTableModel) table.getModel()).getType(actualRow);
             if (column == COL_NAME) {
                 // Reinstate the real name, as the value will be the sorting-optimized name
-                value = InfantryUtil.trimInfantryWeaponNames(etype.getName());
+                String displayName = InfantryUtil.trimInfantryWeaponNames(etype.getName());
+                // Prefix an info marker before the name for equipment that has an authored info description
+                // (EquipmentType.getFlavorDescription). Display-only, so sorting on the model value is unaffected.
+                if (!etype.getFlavorDescription().isBlank()) {
+                    displayName = "ⓘ " + displayName;
+                }
+                value = displayName;
             }
             super.getTableCellRendererComponent(table, value, isSelected,
                   hasFocus, row, column);
