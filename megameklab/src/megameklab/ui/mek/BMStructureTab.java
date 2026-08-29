@@ -1422,8 +1422,10 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
      * @param points the amount of points left over
      */
     private void allocateLeftoverPoints(double points) {
-        int headPoints = getMek().isSuperHeavy() ? 4 : 3;
-        int headMaxArmor = getMek().getOInternal(Mek.LOC_HEAD) * 2 + headPoints;
+        // Head armor max is fixed at 9/12 (balance rule, matching autoAllocateArmor's initial cap), NOT derived
+        // from head internal structure - OS boosted-structure types (Heavy Duty / Reinforced) multiply head IS
+        // (getOInternal(LOC_HEAD) > 3), which would otherwise let leftover points overfill the head past 9.
+        int headMaxArmor = getMek().isSuperHeavy() ? 12 : 9;
         while (points >= 1) {
             // if two or more are left, add armor to symmetrical locations,
             // to torso, legs, arms, in that order
@@ -1525,7 +1527,7 @@ public class BMStructureTab extends ITab implements MekBuildListener, ArmorAlloc
                 double is = (getMek().getInternal(location) * 2);
                 switch (location) {
                     case Mek.LOC_HEAD:
-                        if ((is + headPoints) > getMek().getOArmor(location)) {
+                        if (headMaxArmor > getMek().getOArmor(location)) {
                             toReturn = false;
                         }
                         break;
