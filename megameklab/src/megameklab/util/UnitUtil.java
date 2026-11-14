@@ -364,7 +364,7 @@ public class UnitUtil {
         // would be removing a linked Artemis IV FCS
         for (Mounted<?> m : unit.getEquipment()) {
             if (mount.equals(m.getLinkedBy())) {
-                m.setLinkedBy(null);
+                m.getLinkedBy().setLinked(null);
             }
         }
 

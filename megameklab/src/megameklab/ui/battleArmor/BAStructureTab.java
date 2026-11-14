@@ -374,7 +374,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
         getBattleArmor().setWeightClass(weightClass);
         if (weightClass > EntityWeightClass.WEIGHT_ULTRA_LIGHT) {
             getBattleArmor().setIsExoskeleton(false);
-            getBattleArmor().setClanExoWithoutHarjel(false);
+            getBattleArmor().setClanExoWithoutHarJel(false);
         }
         panBasicInfo.setFromEntity(getBattleArmor());
         panChassis.refresh();
@@ -389,7 +389,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
     public void exoskeletonChanged(boolean exoskeleton) {
         getBattleArmor().setIsExoskeleton(exoskeleton);
         if (exoskeleton && !panBasicInfo.useClanTechBase()) {
-            getBattleArmor().setClanExoWithoutHarjel(panChassis.hasHarjel());
+            getBattleArmor().setClanExoWithoutHarJel(panChassis.hasHarjel());
         }
         panBasicInfo.setFromEntity(getBattleArmor());
         panArmor.refresh();
@@ -399,7 +399,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
 
     @Override
     public void harjelChanged(boolean harjel) {
-        getBattleArmor().setClanExoWithoutHarjel(panChassis.isExoskeleton() && !harjel);
+        getBattleArmor().setClanExoWithoutHarJel(panChassis.isExoskeleton() && !harjel);
         refresh.refreshStatus();
         refreshPreview();
     }

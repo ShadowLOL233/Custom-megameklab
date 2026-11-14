@@ -1269,10 +1269,10 @@ public final class MekUtil {
     public static void updateClanCasePlacement(Mek mek) {
         boolean hadClanCase = mek.isClan() || mek.hasClanCaseEquipped();
         if (hadClanCase) {
-            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.CLAN_CASE));
+            MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.CLAN_CASE));
             addClanCaseToExplosiveLocations(mek);
         } else if (mek.isOuterSphere()) {
-            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_CASE));
+            MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_CASE));
             mek.addOSCase();
         }
     }
@@ -1323,9 +1323,9 @@ public final class MekUtil {
         boolean hadEars = mek.getMisc().stream()
               .anyMatch(m -> m.getType().hasFlag(MiscType.F_EARS));
         // Also clean up any legacy component items from old saves
-        removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS_COMPONENT));
+        MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS_COMPONENT));
         if (hadEars) {
-            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS));
+            MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_EARS));
             EquipmentType earsType = EquipmentType.get(EquipmentTypeLookup.OS_EARS);
             if (earsType != null) {
                 createSpreadMounts(mek, earsType);
@@ -1344,9 +1344,9 @@ public final class MekUtil {
         boolean hadDds = mek.getMisc().stream()
               .anyMatch(m -> m.getType().hasFlag(MiscType.F_DDS));
         // Also clean up any legacy component items from old saves
-        removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS_COMPONENT));
+        MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS_COMPONENT));
         if (hadDds) {
-            removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS));
+            MekConstructionUtil.removeAllMounted(mek, EquipmentType.get(EquipmentTypeLookup.OS_DDS));
             EquipmentType ddsType = EquipmentType.get(EquipmentTypeLookup.OS_DDS);
             if (ddsType != null) {
                 createSpreadMounts(mek, ddsType);

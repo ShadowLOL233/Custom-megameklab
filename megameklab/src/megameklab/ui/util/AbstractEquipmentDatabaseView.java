@@ -713,7 +713,10 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         boolean rulesVisible = columnModel
               .isColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_REF));
         String techSearchString = EquipmentTableModel.getTechBaseAsString(equipment).toLowerCase();
-        String rulesSearchString = equipment.getRulesRefs().toLowerCase();
+        String rulesSearchString = equipment.getRulesRefs().stream()
+              .map(Object::toString)
+              .collect(Collectors.joining("; "))
+              .toLowerCase();
         String lowerCaseSearchString = txtFilter.getText().toLowerCase();
         return txtFilter.getText().isBlank()
               || equipment.getName().toLowerCase().contains(lowerCaseSearchString)
