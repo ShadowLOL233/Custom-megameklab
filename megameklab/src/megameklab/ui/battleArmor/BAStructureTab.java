@@ -44,6 +44,7 @@ import javax.swing.SwingConstants;
 
 import megamek.common.CriticalSlot;
 import megamek.common.SimpleTechLevel;
+import jakarta.annotation.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.enums.Faction;
 import megamek.common.equipment.ArmorType;

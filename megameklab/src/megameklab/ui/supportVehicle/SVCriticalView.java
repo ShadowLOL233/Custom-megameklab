@@ -43,7 +43,7 @@ import javax.swing.ListSelectionModel;
 
 import megamek.client.ui.util.UIUtil.FixedYPanel;
 import megamek.common.CriticalSlot;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.equipment.Mounted;
 import megamek.common.units.FixedWingSupport;
 import megamek.common.units.SuperHeavyTank;

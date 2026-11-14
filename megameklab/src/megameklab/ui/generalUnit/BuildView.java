@@ -41,7 +41,7 @@ import javax.swing.SwingConstants;
 import megamek.common.equipment.Engine;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.EquipmentTypeLookup;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 
 /**
  * Base class that has some common layout methods for main ui component views.

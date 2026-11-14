@@ -262,9 +262,9 @@ public class MovementView extends BuildView implements ActionListener, ChangeLis
             cbJumpType.addActionListener(this);
         } else if (en instanceof ProtoMek protoMek) {
             if (protoMek.isGlider()) {
-                minWalk = TestProtoMek.GLIDER_MIN_MP;
+                minWalk = TestProtoMek.GLIDER_MIN_FLANK_MP;
             } else if (protoMek.isQuad()) {
-                minWalk = TestProtoMek.QUAD_MIN_MP;
+                minWalk = TestProtoMek.QUAD_MIN_RUN_MP;
             } else {
                 minWalk = 1;
             }

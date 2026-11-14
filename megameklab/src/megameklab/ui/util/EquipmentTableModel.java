@@ -41,8 +41,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import javax.swing.JTable;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+
+import megamek.client.ui.util.UIUtil;
 
 import megamek.common.RangeType;
 import megamek.common.equipment.AmmoType;
@@ -554,7 +557,7 @@ public class EquipmentTableModel extends AbstractTableModel {
                 setForeground(UIManager.getColor("Label.foreground"));
             }
             if (!isSelected) {
-                setBackground(((row % 2) != 0) ? tableModel.alternateTableBGColor() : table.getBackground());
+                setBackground(((row % 2) != 0) ? UIUtil.alternateTableBGColor() : table.getBackground());
             }
             return component;
         }

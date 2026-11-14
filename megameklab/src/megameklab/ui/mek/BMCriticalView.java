@@ -63,7 +63,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 import megamek.common.CriticalSlot;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.exceptions.LocationFullException;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.MiscType;

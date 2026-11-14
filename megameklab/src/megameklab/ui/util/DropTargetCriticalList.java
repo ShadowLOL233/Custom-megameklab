@@ -41,7 +41,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
 import megamek.common.CriticalSlot;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;

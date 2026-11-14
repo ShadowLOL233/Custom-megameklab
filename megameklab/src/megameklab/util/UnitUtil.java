@@ -53,7 +53,7 @@ import megamek.common.CriticalSlot;
 import megamek.common.Player;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.enums.TechBase;
 import megamek.common.equipment.*;

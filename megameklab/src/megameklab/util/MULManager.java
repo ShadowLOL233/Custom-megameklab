@@ -36,7 +36,7 @@ import java.io.File;
 import java.util.Vector;
 import javax.swing.JFrame;
 
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.loaders.MULParser;
 import megamek.common.units.Entity;
 import megamek.logging.MMLogger;

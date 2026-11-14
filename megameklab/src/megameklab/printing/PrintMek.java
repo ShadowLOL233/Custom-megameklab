@@ -44,7 +44,7 @@ import java.util.Optional;
 
 import megamek.common.CriticalSlot;
 import megamek.common.MPCalculationSetting;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.enums.TechBase;
 import megamek.common.equipment.AmmoMounted;
 import megamek.common.equipment.AmmoType;
@@ -238,7 +238,7 @@ public class PrintMek extends PrintEntity {
 
     private void printShields() {
         for (MiscMounted m : mek.getMisc()) {
-            if (m.getType().isShield()) {
+            if (m.getType().hasFlag(MiscType.F_SHIELD)) {
                 String loc = mek.getLocationAbbr(m.getLocation());
                 Element element = getSVGDocument().getElementById(ARMOR_DIAGRAM + loc);
                 if (null != element) {
