@@ -138,6 +138,18 @@ public interface ArmorAllocationListener {
 
     }
 
+    default void frankenMekStructureTonnageChanged(int location, int tonnage) {
+
+    }
+
+    default void frankenMekStructureTypeChanged(int location, EquipmentType structure) {
+
+    }
+
+    default void frankenMekLocationSourceChanged(int location, String sourceDisplayName, String sourceType) {
+
+    }
+
     /**
      * Signals that the armor should be automatically distributed to the various locations.
      */

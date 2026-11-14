@@ -139,6 +139,7 @@ public class UnitUtil {
     public static boolean isFixedLocationSpreadEquipment(EquipmentType equipmentType) {
         return (equipmentType instanceof MiscType miscType) && (miscType.hasFlag(MiscType.F_JUMP_BOOSTER)
               || miscType.hasFlag(MiscType.F_BA_MANIPULATOR)
+              || miscType.is(EquipmentTypeLookup.BA_MODULAR_EQUIPMENT_ADAPTOR)
               || miscType.hasFlag(MiscType.F_PARTIAL_WING)
               || miscType.hasFlag(MiscType.F_NULL_SIG)
               || miscType.hasFlag(MiscType.F_VOID_SIG)
@@ -150,7 +151,7 @@ public class UnitUtil {
               || miscType.hasFlag(MiscType.F_TRACKS)
               || miscType.hasFlag(MiscType.F_TALON)
               || (miscType.hasFlag(MiscType.F_STEALTH)
-                && (miscType.hasFlag(MiscType.F_MEK_EQUIPMENT) || miscType.hasFlag(MiscType.F_TANK_EQUIPMENT)))
+              && (miscType.hasFlag(MiscType.F_MEK_EQUIPMENT) || miscType.hasFlag(MiscType.F_TANK_EQUIPMENT)))
               || miscType.hasFlag(MiscType.F_CHAMELEON_SHIELD)
               || miscType.hasFlag(MiscType.F_BLUE_SHIELD)
               || miscType.hasFlag(MiscType.F_MAST_MOUNT)
@@ -457,26 +458,7 @@ public class UnitUtil {
      * @param mounted The equipment to test
      */
     public static void removeCriticalSlots(Entity unit, @Nullable Mounted<?> mounted) {
-        for (int loc = 0; loc < unit.locations(); loc++) {
-            for (int slot = 0; slot < unit.getNumberOfCriticalSlots(loc); slot++) {
-                CriticalSlot criticalSlot = unit.getCritical(loc, slot);
-                if ((criticalSlot != null) && (criticalSlot.getType() == CriticalSlot.TYPE_EQUIPMENT)) {
-                    if ((criticalSlot.getMount() != null) && (criticalSlot.getMount().equals(mounted))) {
-                        // If there are two pieces of equipment in this slot, remove first one, and replace it with
-                        // the second
-                        if (criticalSlot.getMount2() != null) {
-                            criticalSlot.setMount(criticalSlot.getMount2());
-                            criticalSlot.setMount2(null);
-                        } else {
-                            // If it's the only Mounted, clear the slot
-                            unit.setCritical(loc, slot, null);
-                        }
-                    } else if ((criticalSlot.getMount2() != null) && (criticalSlot.getMount2().equals(mounted))) {
-                        criticalSlot.setMount2(null);
-                    }
-                }
-            }
-        }
+        ConstructionUtil.removeCriticalSlots(unit, mounted);
     }
 
     /**
@@ -565,8 +547,19 @@ public class UnitUtil {
      * @return Boolean if the tech level is legal for the passed unit
      */
     public static boolean isLegal(Entity unit, ITechnology tech) {
+        for (int techLevelYear : unit.getTechLevelYears()) {
+            if (isLegal(unit, tech, techLevelYear)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isLegal(Entity unit, ITechnology tech, int techLevelYear) {
+        boolean ignoreExtinction = CConfig.getBooleanParam(CConfig.TECH_EXTINCT)
+              || ((unit instanceof Mek mek) && mek.isFrankenMek());
         if (unit.isMixedTech()) {
-            if (!tech.isAvailableIn(unit.getTechLevelYear(), CConfig.getBooleanParam(CConfig.TECH_EXTINCT))) {
+            if (!tech.isAvailableIn(techLevelYear, ignoreExtinction)) {
                 return false;
             }
         } else {
@@ -574,13 +567,11 @@ public class UnitUtil {
                 return false;
             }
 
-            if (!tech.isAvailableIn(unit.getTechLevelYear(),
-                  unit.isClan(),
-                  CConfig.getBooleanParam(CConfig.TECH_EXTINCT))) {
+            if (!tech.isAvailableIn(techLevelYear, unit.isClan(), ignoreExtinction)) {
                 return false;
             }
         }
-        return TechConstants.convertFromNormalToSimple(tech.getTechLevel(unit.getTechLevelYear(), unit.isClan())) <=
+        return TechConstants.convertFromNormalToSimple(tech.getTechLevel(techLevelYear, unit.isClan())) <=
               TechConstants.convertFromNormalToSimple(unit.getTechLevel());
     }
 
@@ -722,30 +713,7 @@ public class UnitUtil {
      */
     public static void changeMountStatus(Entity unit, Mounted<?> eq, int location, int secondaryLocation,
           boolean rear) {
-        if ((location != eq.getLocation() && !eq.isOneShot())) {
-            if (eq.getLinked() != null) {
-                eq.getLinked().setLinkedBy(null);
-                eq.setLinked(null);
-            }
-            if (eq.getLinkedBy() != null) {
-                eq.getLinkedBy().setLinked(null);
-                eq.setLinkedBy(null);
-            }
-        }
-        eq.setLocation(location, rear);
-        eq.setSecondLocation(secondaryLocation, rear);
-        eq.setSplit(secondaryLocation > -1);
-        // If we're adding it to a location on the unit, check equipment linkages
-        if (location > Entity.LOC_NONE) {
-            try {
-                MekFileParser.postLoadInit(unit);
-            } catch (Exception ignored) {
-                // Exception thrown for not having equipment to link to yet, which is acceptable here
-            }
-        }
-        if (unit instanceof Mek mek) {
-            MekUtil.updateClanCasePlacement(mek);
-        }
+        ConstructionUtil.changeMountStatus(unit, eq, location, secondaryLocation, rear);
     }
 
     public static void resizeMount(Mounted<?> mount, double newSize) {
@@ -787,8 +755,8 @@ public class UnitUtil {
                     if (cs != null) {
                         toAdd.add(cs);
                     }
-                    entity.setCritical(loc, slot, toAdd.get(0));
-                    toAdd.remove(0);
+                    entity.setCritical(loc, slot, toAdd.getFirst());
+                    toAdd.removeFirst();
                     slot++;
                 }
             }
@@ -805,14 +773,7 @@ public class UnitUtil {
      * @return An unallocated non-one-shot ammo mount of the same type, or null if there is not one.
      */
     public static Mounted<?> findUnallocatedAmmo(Entity unit, EquipmentType at) {
-        for (Mounted<?> m : unit.getAmmo()) {
-            if ((m.getLocation() == Entity.LOC_NONE) &&
-                  at.equals(m.getType()) &&
-                  ((m.getLinkedBy() == null) || !m.getLinkedBy().getType().hasFlag(WeaponType.F_ONE_SHOT))) {
-                return m;
-            }
-        }
-        return null;
+        return ConstructionUtil.findUnallocatedAmmo(unit, at);
     }
 
     /**
@@ -1737,7 +1698,7 @@ public class UnitUtil {
         } else if (unit.hasETypeFlag(Entity.ETYPE_BATTLEARMOR)) {
             testEntity = new TestBattleArmor((BattleArmor) unit, entityVerifier.baOption, null);
         } else if (unit.hasETypeFlag(Entity.ETYPE_INFANTRY)) {
-            testEntity = new TestInfantry((Infantry) unit, entityVerifier.infOption, null);
+            testEntity = new TestInfantry((ConvInfantry) unit, entityVerifier.infOption, null);
         } else if (unit.hasETypeFlag(Entity.ETYPE_HANDHELD_WEAPON)) {
             testEntity = new TestHandheldWeapon((HandheldWeapon) unit, entityVerifier.infOption, null);
         }
@@ -1745,8 +1706,8 @@ public class UnitUtil {
     }
 
     /**
-     * Check that the unit is valid. When the "Use Game Year" setting is enabled, equipment intro
-     * dates are validated against the configured game year rather than the unit's intro year.
+     * Check that the unit is valid. When the "Use Game Year" setting is enabled, equipment intro dates are validated
+     * against the configured game year rather than the unit's intro year.
      *
      * @param unit The entity
      */
@@ -2067,7 +2028,7 @@ public class UnitUtil {
             UnitUtil.removeMounted(unit, m);
         }
 
-        if (unit instanceof Infantry pbi) {
+        if (unit instanceof ConvInfantry pbi) {
             if ((null != pbi.getPrimaryWeapon()) && !techManager.isLegal(pbi.getPrimaryWeapon())) {
                 dirty = true;
                 InfantryUtil.replaceMainWeapon(pbi, (InfantryWeapon) EquipmentType.get("Infantry Auto Rifle"), false);

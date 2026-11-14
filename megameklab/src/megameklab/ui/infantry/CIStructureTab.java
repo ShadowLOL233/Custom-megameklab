@@ -51,8 +51,8 @@ import megamek.common.equipment.Mounted;
 import megamek.common.equipment.WeaponType;
 import megamek.common.exceptions.LocationFullException;
 import megamek.common.interfaces.ITechManager;
+import megamek.common.units.ConvInfantry;
 import megamek.common.units.EntityMovementMode;
-import megamek.common.units.Infantry;
 import megamek.common.units.InfantryMount;
 import megamek.common.units.UnitRole;
 import megamek.common.verifier.TestInfantry;
@@ -230,7 +230,7 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
 
     private void updateSpecializations() {
         advancedView.updateSpecializations();
-        if (getInfantry().hasSpecialization(Infantry.TAG_TROOPS)
+        if (getInfantry().hasSpecialization(ConvInfantry.TAG_TROOPS)
               && ((getInfantry().getSecondaryWeaponsPerSquad() < 2)
               || (getInfantry().getSecondaryWeapon() == null)
               || !getInfantry().getSecondaryWeapon().hasFlag(WeaponType.F_TAG))) {
@@ -357,6 +357,12 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
     }
 
     @Override
+    public void publishedChanged(String published) {
+        getInfantry().setPublished(published);
+        refresh.refreshPreview();
+    }
+
+    @Override
     public void factionChanged(Faction faction) {
         getEntity().setTechFaction(faction);
     }
@@ -447,7 +453,7 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
         } else {
             if (count == 0) {
                 InfantryUtil.replaceMainWeapon(getInfantry(), null, true);
-                getInfantry().setSpecializations(getInfantry().getSpecializations() & ~Infantry.TAG_TROOPS);
+                getInfantry().setSpecializations(getInfantry().getSpecializations() & ~ConvInfantry.TAG_TROOPS);
             }
             getInfantry().setSecondaryWeaponsPerSquad(count);
         }
@@ -459,7 +465,7 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
     @Override
     public void numFieldGunsChanged(final int count) {
         Optional<WeaponType> fieldGun = getInfantry().getWeaponList().stream()
-              .filter(m -> m.getLocation() == Infantry.LOC_FIELD_GUNS)
+              .filter(m -> m.getLocation() == ConvInfantry.LOC_FIELD_GUNS)
               .map(Mounted::getType)
               .findAny();
         InfantryUtil.replaceFieldGun(getInfantry(), fieldGun.orElse(null), count);
@@ -472,7 +478,7 @@ public class CIStructureTab extends ITab implements InfantryBuildListener {
     public void antiMekChanged(final boolean antiMek) {
         if (antiMek) {
             try {
-                getInfantry().addEquipment(ANTI_MEK_GEAR, Infantry.LOC_INFANTRY);
+                getInfantry().addEquipment(ANTI_MEK_GEAR, ConvInfantry.LOC_INFANTRY);
             } catch (LocationFullException ignored) {
                 // Not on infantry
             }

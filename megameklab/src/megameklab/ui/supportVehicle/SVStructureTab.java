@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2019-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -302,6 +302,12 @@ public class SVStructureTab extends ITab implements SVBuildListener {
     @Override
     public void sourceChanged(String source) {
         getSV().setSource(source);
+        refresh.refreshPreview();
+    }
+
+    @Override
+    public void publishedChanged(String published) {
+        getSV().setPublished(published);
         refresh.refreshPreview();
     }
 
@@ -922,7 +928,7 @@ public class SVStructureTab extends ITab implements SVBuildListener {
         } else if (!hasMod && getSV().hasDNICockpitMod()) {
             for (MiscMounted mounted : getSV().getMisc()) {
                 if (mounted.getType().hasFlag(MiscType.F_DNI_COCKPIT_MOD)) {
-                    getSV().removeMisc(mounted.getType().getInternalName());
+                    getSV().removeMisc(mounted.getName());
                     break;
                 }
             }

@@ -42,7 +42,7 @@ import javax.swing.JFrame;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import megamek.common.Configuration;
-import megamek.common.annotations.Nullable;
+import jakarta.annotation.Nullable;
 import megamek.common.loaders.BLKFile;
 import megamek.common.preference.PreferenceManager;
 import megamek.common.units.Entity;

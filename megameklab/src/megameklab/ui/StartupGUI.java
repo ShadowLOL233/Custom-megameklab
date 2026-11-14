@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2019-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -39,6 +39,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.image.VolatileImage;
 import java.io.File;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 import javax.swing.JFrame;
@@ -58,6 +59,7 @@ import megamek.client.ui.widget.SkinXMLHandler;
 import megamek.client.ui.widget.SkinnedJPanel;
 import megamek.common.Configuration;
 import megamek.common.annotations.Nullable;
+import megamek.common.loaders.MekSummary;
 import megamek.common.units.Entity;
 import megamek.common.util.ImageUtil;
 import megamek.common.util.ManagedVolatileImage;
@@ -68,7 +70,6 @@ import megameklab.MMLConstants;
 import megameklab.ui.dialog.MegaMekLabUnitSelectorDialog;
 import megameklab.ui.dialog.UiLoader;
 import megameklab.ui.util.ExitOnWindowClosingListener;
-import megameklab.ui.util.MegaMekLabFileSaver;
 import megameklab.ui.util.TabUtil;
 import megameklab.util.CConfig;
 import megameklab.util.MMLFileDropTransferHandler;
@@ -253,10 +254,11 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         };
         splashPanel.setPreferredSize(splashPanelPreferredSize);
 
-        JLabel labVersion = new JLabel(resourceMap.getString("version.text") + MMLConstants.VERSION, JLabel.CENTER);
-        labVersion.setPreferredSize(new Dimension(250, 15));
+        JLabel labVersion = new JLabel(MessageFormat.format(resourceMap.getString("version.text"),
+              MMLConstants.VERSION),
+              JLabel.CENTER);
         if (!skinSpec.fontColors.isEmpty()) {
-            labVersion.setForeground(skinSpec.fontColors.get(0));
+            labVersion.setForeground(skinSpec.fontColors.getFirst());
         }
 
         MegaMekButton btnLoadUnit = new MegaMekButton(resourceMap.getString("btnLoadUnit.text"),
@@ -530,12 +532,11 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         return targetLogoHeight;
     }
 
-    private static String processFileName(File file, Entity newUnit) {
-        String fileName = file.toString();
+    private static String processFileName(MekSummary mekSummary) {
+        String fileName = mekSummary.getSourceFile().toString();
         if (fileName.toLowerCase().endsWith(".zip")) {
-            fileName = file.getAbsolutePath();
-            fileName = fileName.substring(0, fileName.lastIndexOf(File.separatorChar) + 1);
-            fileName = fileName + MegaMekLabFileSaver.createUnitFilename(newUnit);
+            fileName = mekSummary.getSourceFile().getAbsolutePath() + CConfig.RECENT_ENTRY_DELIMITER
+                  + mekSummary.getEntryName();
         }
         return fileName;
     }
@@ -545,7 +546,7 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         var mekSummaries = viewer.getSelectedMekSummaries();
         var fileNames = new ArrayList<String>();
         for (int i = 0; i < entities.size(); i++) {
-            fileNames.add(processFileName(mekSummaries.get(i).getSourceFile(), entities.get(i)));
+            fileNames.add(processFileName(mekSummaries.get(i)));
         }
         TabUtil.loadMany(entities, fileNames, owner);
     }
