@@ -36,8 +36,12 @@ package megameklab.ui.generalUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.io.InputStream;
+import java.util.Arrays;
+import javax.swing.JCheckBox;
 
 import megamek.common.TechConstants;
 import megamek.common.enums.TechBase;
@@ -48,10 +52,15 @@ import megamek.common.loaders.EntitySavingException;
 import megamek.common.loaders.MekFileParser;
 import megamek.common.units.Entity;
 import megameklab.testing.util.InitializeTypes;
+import megameklab.ui.listeners.BuildListener;
+import megameklab.util.CConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @ExtendWith(value = InitializeTypes.class)
 class BasicInfoViewTest {
@@ -98,5 +107,75 @@ class BasicInfoViewTest {
         assertEquals(TechBase.IS, techBase);
         assertEquals(TechConstants.T_IS_UNOFFICIAL, techLevel);
         assertFalse(newTE.isClan());
+    }
+
+    @Test
+    void battlefieldSupportToggleRefreshesSummary() {
+        BasicInfoView view = new BasicInfoView(Entity.getMixedTechAdvancement());
+        BuildListener listener = mock(BuildListener.class);
+        view.addListener(listener);
+        JCheckBox toggle = Arrays.stream(view.getComponents())
+              .filter(JCheckBox.class::isInstance)
+              .map(JCheckBox.class::cast)
+              .findFirst()
+              .orElseThrow();
+
+        toggle.doClick();
+
+        verify(listener).battlefieldSupportAssetToggled(true);
+        verify(listener).refreshSummary();
+    }
+
+    @Nested
+    class GameYearOverride {
+        private String savedUseYear;
+        private String savedYear;
+        private BasicInfoView view;
+
+        @BeforeEach
+        void setUp() {
+            savedUseYear = CConfig.getParam(CConfig.TECH_USE_YEAR);
+            savedYear = CConfig.getParam(CConfig.TECH_YEAR);
+            CConfig.setParam(CConfig.TECH_USE_YEAR, Boolean.toString(true));
+            CConfig.setParam(CConfig.TECH_YEAR, "3050");
+            view = new BasicInfoView(Entity.getMixedTechAdvancement());
+            view.setYear(3025);
+        }
+
+        @AfterEach
+        void tearDown() {
+            CConfig.setParam(CConfig.TECH_USE_YEAR, savedUseYear);
+            CConfig.setParam(CConfig.TECH_YEAR, savedYear);
+        }
+
+        @Test
+        void overrideTakesPrecedenceOverConfig() {
+            view.setGameYearOverride(3100);
+
+            assertEquals(3100, view.getGameYear());
+        }
+
+        @Test
+        void overrideIsClampedToIntroYear() {
+            view.setGameYearOverride(2900);
+
+            assertEquals(3025, view.getGameYear());
+        }
+
+        @Test
+        void maxValueOverrideIsPreserved() {
+            view.setGameYearOverride(Integer.MAX_VALUE);
+
+            assertEquals(Integer.MAX_VALUE, view.getGameYear());
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = { 0, -1 })
+        void nonPositiveOverrideRestoresConfiguredYear(int clearValue) {
+            view.setGameYearOverride(3100);
+            view.setGameYearOverride(clearValue);
+
+            assertEquals(3050, view.getGameYear());
+        }
     }
 }

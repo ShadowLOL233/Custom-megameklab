@@ -109,8 +109,32 @@ public final class MekUtil {
     }
 
     /**
+     * An OmniMek's placed fixed heat sinks belong to its base chassis, so lowering the heat sink count takes them after
+     * the engine's integral heat sinks. Heat sinks added back fill the engine first, so lowering and raising the count
+     * then keeps the same fixed heat sinks instead of swapping them for pods, which a MekHQ refit treats as altering the
+     * base chassis (MegaMekLab #2400). Compact heat sinks keep the original order, as their pair counting expects the
+     * engine's heat sinks to go last.
+     *
+     * @param unit the Mek losing heat sinks
+     *
+     * @return {@code true} if placed fixed heat sinks go after the engine's integral heat sinks
+     */
+    private static boolean isKeepingPlacedFixedHeatSinksLast(Mek unit) {
+        if (!unit.isOmni()) {
+            return false;
+        }
+        if (unit.hasCompactHeatSinks()) {
+            logger.debug("[OmniHeatSinks] {}: compact heat sinks, placed fixed heat sinks keep the original removal order",
+                  unit.getShortName());
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Removes the specified number of heat sinks from the mek Heat sinks are removed first with LOC_NONE above the free
-     * crit limit then they are removed with a location, and lastly they are removed below the free crit limit
+     * crit limit then they are removed with a location, and lastly they are removed below the free crit limit. On an
+     * OmniMek, pods go before the engine's integral heat sinks, and placed fixed heat sinks go last.
      *
      */
     public static void removeHeatSinks(Mek unit, int number) {
@@ -118,21 +142,21 @@ public final class MekUtil {
         int base = UnitUtil.getCriticalFreeHeatSinks(unit, unit.hasCompactHeatSinks());
         boolean splitCompact = false;
         if (unit.hasCompactHeatSinks()) {
-            // first check to see if there is a single compact heat sink outside the
-            // engine and
-            // remove this first if so
+            // First check to see if there is a single compact heat sink outside the
+            // engine and remove this first if so
             Mounted<?> mount = getSingleCompactHeatSink(unit);
             if ((null != mount) && (number > 0)) {
                 UnitUtil.removeMounted(unit, mount);
                 number--;
             }
-            // if number is now uneven, then note that we will need to split a compact
+            // If number is now uneven, then note that we will need to split a compact
             if ((number % 2) == 1) {
                 splitCompact = true;
                 number--;
             }
         }
         Vector<Mounted<?>> unassigned = new Vector<>();
+        Vector<Mounted<?>> omniAssigned = new Vector<>();
         Vector<Mounted<?>> assigned = new Vector<>();
         Vector<Mounted<?>> free = new Vector<>();
         for (Mounted<?> m : unit.getMisc()) {
@@ -145,20 +169,28 @@ public final class MekUtil {
                         unassigned.add(m);
                     }
                 } else {
-                    assigned.add(m);
+                    if (m.isOmniPodMounted()) {
+                        omniAssigned.add(m);
+                    } else {
+                        assigned.add(m);
+                    }
                 }
             }
         }
         toRemove.addAll(unassigned);
-        toRemove.addAll(assigned);
-        toRemove.addAll(free);
+        toRemove.addAll(omniAssigned);
+        if (isKeepingPlacedFixedHeatSinksLast(unit)) {
+            toRemove.addAll(free);
+            toRemove.addAll(assigned);
+        } else {
+            toRemove.addAll(assigned);
+            toRemove.addAll(free);
+        }
         if (unit.hasCompactHeatSinks()) {
-            // need to do some number magic here. The unassigned and assigned slots should
-            // each
-            // contain two heat sinks, but if we dip into the free then we are looking at
-            // one heat
-            // sink.
-            int numberDouble = Math.min(number / 2, unassigned.size() + assigned.size());
+            // Need to do some number magic here. The unassigned, omniAssigned, and assigned slots
+            // should each contain two heat sinks, but if we dip into the free then we are looking
+            // at one heat sink.
+            int numberDouble = Math.min(number / 2, unassigned.size() + omniAssigned.size() + assigned.size());
             int numberSingle = Math.max(0, number - (2 * numberDouble));
             number = numberDouble + numberSingle;
         }
@@ -171,7 +203,7 @@ public final class MekUtil {
         if (splitCompact) {
             Mounted<?> eq = toRemove.get(number);
             int loc = eq.getLocation();
-            // remove singleCompact mount and replace with a double
+            // Remove singleCompact mount and replace with a double
             UnitUtil.removeMounted(unit, eq);
             if (!eq.getType().hasFlag(MiscType.F_HEAT_SINK)) {
                 try {
@@ -200,14 +232,37 @@ public final class MekUtil {
         if (sinkType.hasFlag(MiscType.F_COMPACT_HEAT_SINK)) {
             addCompactHeatSinkMounts(unit, hsAmount);
         } else {
+            int emptyEngineSlots = countEmptyEngineHeatSinkSlots(unit);
             for (; hsAmount > 0; hsAmount--) {
                 try {
-                    unit.addEquipment(Mounted.createMounted(unit, sinkType), Entity.LOC_NONE, false);
+                    Mounted<?> heatSink = Mounted.createMounted(unit, sinkType);
+                    unit.addEquipment(heatSink, Entity.LOC_NONE, false);
+                    boolean isEngineHeatSink = emptyEngineSlots-- > 0;
+                    heatSink.setOmniPodMounted(!isEngineHeatSink && UnitUtil.canPodMount(unit, heatSink));
                 } catch (Exception ex) {
                     logger.error("", ex);
                 }
             }
         }
+    }
+
+    /**
+     * Counts how many more heat sinks the engine can hold without critical slots. On an OmniMek those belong to the
+     * base chassis and are fixed, so new heat sinks fill them first as fixed and go in as pods beyond them.
+     *
+     * @param unit the Mek getting heat sinks
+     *
+     * @return the number of new heat sinks the engine takes
+     */
+    private static int countEmptyEngineHeatSinkSlots(Mek unit) {
+        int engineHeatSinks = 0;
+        for (Mounted<?> mounted : unit.getMisc()) {
+            boolean isUnplacedHeatSink = UnitUtil.isHeatSink(mounted) && (mounted.getLocation() == Entity.LOC_NONE);
+            if (isUnplacedHeatSink && !mounted.getType().hasFlag(MiscType.F_IS_DOUBLE_HEAT_SINK_PROTOTYPE)) {
+                engineHeatSinks++;
+            }
+        }
+        return Math.max(0, UnitUtil.getCriticalFreeHeatSinks(unit, false) - engineHeatSinks);
     }
 
     public static void addCompactHeatSinkMounts(Mek unit, int hsAmount) {
@@ -939,12 +994,16 @@ public final class MekUtil {
      * any.
      */
     public static void fillInAllEquipment(Mek mek) {
-        int externalEngineHS = UnitUtil.getCriticalFreeHeatSinks(mek, mek.hasCompactHeatSinks());
+        int engineFreeHS = UnitUtil.getCriticalFreeHeatSinks(mek, mek.hasCompactHeatSinks());
         // Create a copy of the equipment list to iterate over
         List<Mounted<?>> equipmentList = new ArrayList<>(mek.getEquipment());
+        // Fixed equipment first, so an OmniMek's engine keeps its fixed heat sinks and the pod ones get slots
+        equipmentList.sort(Comparator.comparing(Mounted::isOmniPodMounted));
         for (Mounted<?> mount : equipmentList) {
             if ((mount.getLocation() != Entity.LOC_NONE)
-                  || (UnitUtil.isHeatSink(mount) && (externalEngineHS-- > 0))) {
+                  || (UnitUtil.isHeatSink(mount)
+                  && !mount.getType().hasFlag(MiscType.F_IS_DOUBLE_HEAT_SINK_PROTOTYPE)
+                  && (engineFreeHS-- > 0))) {
                 continue;
             }
             for (int location = Mek.LOC_HEAD; location < mek.locations(); location++) {
@@ -1379,7 +1438,7 @@ public final class MekUtil {
         }
 
         if ((eq instanceof MiscType)) {
-            if (eq.isAnyOf(EquipmentTypeLookup.LAM_FUEL_TANK, EquipmentTypeLookup.LAM_BOMB_BAY)
+            if (eq.hasAnyFlag(MiscType.F_LAM_FUEL_TANK, MiscType.F_BOMB_BAY)
                   && !(unit instanceof LandAirMek)) {
                 return false;
             }
@@ -1440,7 +1499,8 @@ public final class MekUtil {
                   && !eq.hasFlag(MiscType.F_HAND_WEAPON)
                   && !eq.hasFlag(MiscType.F_TALON)
                   && !eq.hasFlag(MiscType.F_EARS_COMPONENT)
-                  && !eq.hasFlag(MiscType.F_DDS_COMPONENT)) {
+                  && !eq.hasFlag(MiscType.F_DDS_COMPONENT)
+                  && !eq.hasFlag(MiscType.F_SHIELD)) {
                 return true;
             }
 

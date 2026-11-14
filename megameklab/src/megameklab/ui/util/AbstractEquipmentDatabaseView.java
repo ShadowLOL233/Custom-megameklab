@@ -65,11 +65,12 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableRowSorter;
 
+import jakarta.annotation.Nullable;
 import megamek.client.ui.WrapLayout;
 import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.models.XTableColumnModel;
 import megamek.client.ui.util.UIUtil;
-import jakarta.annotation.Nullable;
+import megamek.common.RulesRef;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.equipment.AmmoType;
 import megamek.common.equipment.EquipmentType;
@@ -336,11 +337,11 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
     }
 
     /**
-     * Creates a small info panel ("Ctrl-Click selects only that equipment"). Has a dismiss button that will prevent it
-     * from being shown again.
+     * Creates a small info panel. Has a dismiss button that will prevent it from being shown again.
      */
     private JComponent setupUserInfoPanel() {
         Box userInfoPanel = Box.createHorizontalBox();
+        userInfoPanel.setOpaque(false);
         JButton gotItButton = new JButton("Got it!");
         gotItButton.setForeground(UIUtil.uiYellow());
         gotItButton.addActionListener(e -> {
@@ -348,14 +349,16 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
             CConfig.setParam(CConfig.NAG_EQUIPMENT_CTRL_CLICK, Boolean.toString(false));
             CConfig.saveConfig();
         });
-        var userInfoText = new JLabel("Note: Ctrl-Click a filter to add it to the selected filters.");
+        JLabel userInfoText = new JLabel("<html>Note: Ctrl-Click a filter to add it to the selected filters.</html>") {
+            @Override
+            public Dimension getMaximumSize() { return getPreferredSize(); }
+        };
         userInfoText.setForeground(UIUtil.uiYellow());
         userInfoPanel.add(userInfoText);
-        userInfoPanel.add(Box.createHorizontalStrut(15));
+        userInfoPanel.add(Box.createHorizontalStrut(5));
         userInfoPanel.add(gotItButton);
         userInfoPanel.add(Box.createHorizontalGlue());
-        userInfoPanel.setOpaque(true);
-        userInfoPanel.setBorder(new EmptyBorder(5, 5, 1, 5));
+        userInfoPanel.setBorder(new EmptyBorder(4, 5, 0, 0));
         return userInfoPanel;
     }
 
@@ -403,7 +406,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         typeFilterPanel.add(buttonAndInfoPanel);
         typeFilterPanel.setBackground(UIManager.getColor("Table.background"));
         typeFilterPanel.setOpaque(true);
-        typeFilterPanel.setBorder(new EmptyBorder(0, 8, 0, 8));
+        typeFilterPanel.setBorder(new EmptyBorder(0, 4, 0, 4));
         return typeFilterPanel;
     }
 
@@ -448,7 +451,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         hideFilterPanel.add(buttonPanel);
         hideFilterPanel.setBackground(UIManager.getColor("Table.background"));
         hideFilterPanel.setOpaque(true);
-        hideFilterPanel.setBorder(new EmptyBorder(0, 8, 0, 8));
+        hideFilterPanel.setBorder(new EmptyBorder(0, 4, 0, 4));
         return hideFilterPanel;
     }
 
@@ -509,7 +512,6 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         }
         miscPanel.setBackground(UIManager.getColor("Table.background"));
         miscPanel.setOpaque(true);
-        miscPanel.setBorder(new EmptyBorder(0, 8, 0, 8));
         return miscPanel;
     }
 
@@ -623,6 +625,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
             refresh.refreshBuild();
             refresh.refreshPreview();
             refresh.refreshSummary();
+            refresh.refreshStructure();
             refresh.refreshEquipment();
         }
     }
@@ -713,10 +716,7 @@ public abstract class AbstractEquipmentDatabaseView extends IView {
         boolean rulesVisible = columnModel
               .isColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_REF));
         String techSearchString = EquipmentTableModel.getTechBaseAsString(equipment).toLowerCase();
-        String rulesSearchString = equipment.getRulesRefs().stream()
-              .map(Object::toString)
-              .collect(Collectors.joining("; "))
-              .toLowerCase();
+        String rulesSearchString = RulesRef.formatForDisplay(equipment.getRulesRefs()).toLowerCase();
         String lowerCaseSearchString = txtFilter.getText().toLowerCase();
         return txtFilter.getText().isBlank()
               || equipment.getName().toLowerCase().contains(lowerCaseSearchString)

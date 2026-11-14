@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2018-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -85,7 +85,7 @@ import megameklab.util.ProtoMekUtil;
 import megameklab.util.UnitUtil;
 
 /**
- * Structure tab for protomeks
+ * Structure tab for ProtoMeks
  *
  * @author Neoancient
  */
@@ -222,6 +222,10 @@ public class PMStructureTab extends ITab implements ProtoMekBuildListener, Armor
         panBasicInfo.setTechFaction(techFaction);
     }
 
+    public void setGameYearOverride(int gameYear) {
+        panBasicInfo.setGameYearOverride(gameYear);
+    }
+
     public void removeAllListeners() {
         panBasicInfo.removeListener(this);
         panChassis.removeListener(this);
@@ -242,6 +246,7 @@ public class PMStructureTab extends ITab implements ProtoMekBuildListener, Armor
         refresh = l;
     }
 
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public boolean isQuad() {
         return panChassis.getMotiveType() == PMChassisView.MOTIVE_TYPE_QUAD;
     }
@@ -258,17 +263,22 @@ public class PMStructureTab extends ITab implements ProtoMekBuildListener, Armor
      * @param tonnage      The design weight
      * @param quadOrGlider Whether the ProtoMek is a quad or glider configuration
      *
-     * @return Whether the engine rating changed
+     * @return true if the new engine is legal for rating, space, and tech level
      */
     private boolean recalculateEngineRating(int walkMP, double tonnage, boolean quadOrGlider) {
         int rating = TestProtoMek.calcEngineRating(walkMP, tonnage, quadOrGlider);
         int oldRating = getProtoMek().getEngine().getRating();
         if (oldRating != rating) {
             Engine engine = new Engine(rating, Engine.NORMAL_ENGINE, Engine.CLAN_ENGINE);
+            if (!engine.engineValid || !panBasicInfo.isLegal(engine)) {
+                JOptionPane.showMessageDialog(
+                      this, String.format("The required engine rating of %d exceeds the maximum.", rating),
+                      "Bad Engine", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
             getProtoMek().setEngine(engine);
-            return true;
         }
-        return false;
+        return true;
     }
 
     /**
@@ -566,8 +576,11 @@ public class PMStructureTab extends ITab implements ProtoMekBuildListener, Armor
 
     @Override
     public void walkChanged(int walkMP) {
-        recalculateEngineRating(walkMP, panChassis.getTonnage(),
-              panChassis.getMotiveType() != PMChassisView.MOTIVE_TYPE_BIPED);
+        if (!recalculateEngineRating(walkMP, panChassis.getTonnage(),
+              panChassis.getMotiveType() != PMChassisView.MOTIVE_TYPE_BIPED)) {
+            panMovement.setFromEntity(getProtoMek());
+            return;
+        }
         getProtoMek().setOriginalWalkMP(walkMP);
         panSummary.refresh();
         refresh.refreshBuild();

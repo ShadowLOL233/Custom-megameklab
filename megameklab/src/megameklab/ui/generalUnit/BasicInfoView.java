@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2017-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -25,7 +25,7 @@
  * Catalyst Game Labs and the Catalyst Game Labs logo are trademarks of
  * InMediaRes Productions, LLC.
  *
- * MechWarrior Copyright Microsoft Corporation. MegaMek was created under
+ * MechWarrior Copyright Microsoft Corporation. MegaMekLab was created under
  * Microsoft's "Game Content Usage Rules"
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
@@ -52,6 +52,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import javax.swing.Box;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -143,11 +144,17 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     private final IntRangeTextField txtMulId = new IntRangeTextField(8);
     private final JButton browseMul = new JButton(new MulLinkIcon());
 
+    // Optional Battlefield Support Asset toggle, hidden unless enabled for an eligible unit editor. Governs whether the
+    // editor's Asset tab is shown; not an entity property, so it is set by the owning structure tab, not setFromEntity.
+    private final JCheckBox chkBattlefieldSupportAsset = new JCheckBox(
+          resourceMap.getString("BasicInfoView.battlefieldSupportAsset.text"));
+
     private final List<BuildListener> listeners = new CopyOnWriteArrayList<>();
     private final SourceBooks sourceBooks = new SourceBooks();
 
     private int prevYear = 3145;
     private int prevBuildYear = -1;
+    private int gameYearOverride = -1;
     private String sourceAbbreviation = "";
     private String publishedAbbreviation = "";
     private Entity currentEntity;
@@ -258,7 +265,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         sourcePanel.add(editSourceButton);
         editSourceButton.setToolTipText(resourceMap.getString("BasicInfoView.configSource.tooltip"));
         sourceMulLinkButton.setToolTipText(resourceMap.getString("BasicInfoView.browseSourcebook.tooltip"));
-        sourceMulLinkButton.addActionListener(e -> openSourcebookMUL(sourceAbbreviation));
+        sourceMulLinkButton.addActionListener(event -> openSourcebookPage(sourceAbbreviation));
         sourcePanel.add(sourceMulLinkButton);
         add(sourcePanel, gbc);
         txtSource.setEditable(false);
@@ -285,7 +292,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         publishedPanel.add(editPublishedButton);
         editPublishedButton.setToolTipText(resourceMap.getString("BasicInfoView.configPublished.tooltip"));
         publishedMulLinkButton.setToolTipText(resourceMap.getString("BasicInfoView.browseSourcebook.tooltip"));
-        publishedMulLinkButton.addActionListener(e -> openSourcebookMUL(publishedAbbreviation));
+        publishedMulLinkButton.addActionListener(event -> openSourcebookPage(publishedAbbreviation));
         publishedPanel.add(publishedMulLinkButton);
         add(publishedPanel, gbc);
         txtPublished.setEditable(false);
@@ -352,6 +359,34 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         txtMulId.setMinimum(-1);
         lblFaction.setVisible(CConfig.getBooleanParam(CConfig.TECH_SHOW_FACTION));
         cbFaction.setVisible(CConfig.getBooleanParam(CConfig.TECH_SHOW_FACTION));
+
+        gbc.gridx = 1;
+        gbc.gridy++;
+        chkBattlefieldSupportAsset.setToolTipText(
+              resourceMap.getString("BasicInfoView.battlefieldSupportAsset.tooltip"));
+        add(chkBattlefieldSupportAsset, gbc);
+        chkBattlefieldSupportAsset.addActionListener(this);
+        // Hidden by default; only eligible unit editors show it via showBattlefieldSupportAssetControl(true).
+        chkBattlefieldSupportAsset.setVisible(false);
+    }
+
+    /** Shows or hides the Battlefield Support Asset toggle row (shown only for eligible unit editors). */
+    public void showBattlefieldSupportAssetControl(boolean visible) {
+        chkBattlefieldSupportAsset.setVisible(visible);
+    }
+
+    /** Sets the checked state of the Battlefield Support Asset toggle without firing its listener. */
+    public void setBattlefieldSupportAssetSelected(boolean selected) {
+        chkBattlefieldSupportAsset.setSelected(selected);
+    }
+
+    public boolean isBattlefieldSupportAssetSelected() {
+        return chkBattlefieldSupportAsset.isSelected();
+    }
+
+    /** Enables/disables the Battlefield Support Asset toggle (disabled when the unit's motive is an illegal asset). */
+    public void setBattlefieldSupportAssetControlEnabled(boolean enabled) {
+        chkBattlefieldSupportAsset.setEnabled(enabled);
     }
 
     public void setFromEntity(Entity en) {
@@ -432,7 +467,9 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
 
     @Override
     public int getTechIntroYear() {
-        return txtYear.getIntVal();
+        final int buildYear = getBuildYear();
+        final int introYear = txtYear.getIntVal();
+        return Math.max(buildYear, introYear);
     }
 
     public void setYear(int year) {
@@ -442,9 +479,17 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     }
 
     /**
+     * Returns the intro year value
+     * @return The intro year
+     */
+    private int getIntroYear() {
+        return txtYear.getIntVal();
+    }
+
+    /**
      * Returns the build year value, or -1 if the field is empty (meaning "use intro year").
      */
-    public int getBuildYear() {
+    private int getBuildYear() {
         if (txtBuildYear.getText().isBlank()) {
             return -1;
         }
@@ -474,7 +519,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
      */
     private void updateBuildYearPlaceholder() {
         txtBuildYear.putClientProperty("JTextField.placeholderText",
-              String.valueOf(getTechIntroYear()));
+              String.valueOf(getIntroYear()));
     }
 
     @Override
@@ -490,8 +535,22 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         cbFaction.setSelectedItem(techFaction);
     }
 
+    /**
+     * Sets a game year that replaces the tech year from the MegaMekLab settings for this view. Hosts such as MekHQ use
+     * this to apply their own tech availability rules without changing the user's MegaMekLab configuration.
+     *
+     * @param gameYear The year to use for tech availability checks, or a value of zero or less to use the MegaMekLab
+     *                 settings again. {@link Integer#MAX_VALUE} makes all tech available regardless of year.
+     */
+    public void setGameYearOverride(int gameYear) {
+        gameYearOverride = gameYear;
+    }
+
     @Override
     public int getGameYear() {
+        if (gameYearOverride > 0) {
+            return Math.max(getTechIntroYear(), gameYearOverride);
+        }
         if (CConfig.getBooleanParam(CConfig.TECH_USE_YEAR)) {
             return Math.max(getTechIntroYear(), CConfig.getIntParam(CConfig.TECH_YEAR));
         }
@@ -563,7 +622,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         } else {
             textField.setToolTipText("<html>%s</html>".formatted(String.join("<hr>", sourceTooltips)));
         }
-        mulLinkButton.setEnabled(shouldShowSourcebookMULButton(sourceList));
+        mulLinkButton.setEnabled(shouldShowSourcebookLinkButton(sourceList));
     }
 
     private void updateNonCanonSourceLabel() {
@@ -796,7 +855,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     @Override
     public void focusGained(FocusEvent e) {
         if (e.getSource().equals(txtYear)) {
-            prevYear = getTechIntroYear();
+            prevYear = getIntroYear();
         } else if (e.getSource().equals(txtBuildYear)) {
             prevBuildYear = getBuildYear();
         }
@@ -855,6 +914,8 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         } else if (e.getSource() == cbRole) {
             UnitRole newRole = (cbRole.getSelectedItem() == null) ? UnitRole.UNDETERMINED : cbRole.getSelectedItem();
             listeners.forEach(l -> l.roleChanged(newRole));
+        } else if (e.getSource() == chkBattlefieldSupportAsset) {
+            listeners.forEach(l -> l.battlefieldSupportAssetToggled(chkBattlefieldSupportAsset.isSelected()));
         }
         listeners.forEach(BuildListener::refreshSummary);
     }
@@ -886,15 +947,15 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     }
 
     /**
-     * The sourcebook MUL button should be shown when any selected sourcebook has a MUL URL and the system seems to
+     * The sourcebook link button should be shown when any selected sourcebook has a link and the system seems to
      * support calling a standard browser.
      *
-     * @return true when the "Open Sourcebook MUL in Browser" Button can be used
+     * @return true when the "Open Sourcebook Page in Browser" Button can be used
      */
-    private boolean shouldShowSourcebookMULButton(String sourceList) {
+    private boolean shouldShowSourcebookLinkButton(String sourceList) {
         return canBrowseDesktop() && sourceBooks.loadSourceBooks(sourceList)
               .stream()
-              .anyMatch(BasicInfoView::hasMulUrl);
+              .anyMatch(BasicInfoView::hasLinkUrl);
     }
 
     private boolean canBrowseDesktop() {
@@ -920,30 +981,31 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
     }
 
     /**
-     * Opens the Master Unit List sourcebook page in the System Standard Explorer, if possible.
+     * Opens the sourcebook's shop page (or its Master Unit List page, if it has no shop page) in the System
+     * Standard Explorer, if possible.
      */
-    private void openSourcebookMUL(String sourceList) {
-        List<SourceBook> sourcebooksWithMul = sourceBooks.loadSourceBooks(sourceList)
+    private void openSourcebookPage(String sourceList) {
+        List<SourceBook> sourcebooksWithLink = sourceBooks.loadSourceBooks(sourceList)
               .stream()
-              .filter(BasicInfoView::hasMulUrl)
+              .filter(BasicInfoView::hasLinkUrl)
               .toList();
-        if (sourcebooksWithMul.isEmpty()) {
+        if (sourcebooksWithLink.isEmpty()) {
             return;
         }
 
-        SourceBook sourceBook = (sourcebooksWithMul.size() == 1)
-              ? sourcebooksWithMul.get(0)
-              : chooseSourcebookMUL(sourcebooksWithMul).orElse(null);
+        SourceBook sourceBook = (sourcebooksWithLink.size() == 1)
+              ? sourcebooksWithLink.getFirst()
+              : chooseSourcebookPage(sourcebooksWithLink).orElse(null);
         if (sourceBook != null) {
-            openSourcebookMUL(sourceBook);
+            openSourcebookPage(sourceBook);
         }
     }
 
-    private Optional<SourceBook> chooseSourcebookMUL(List<SourceBook> sourcebooksWithMul) {
-        JList<SourceBook> sourceBookList = new JList<>(sourcebooksWithMul.toArray(SourceBook[]::new));
+    private Optional<SourceBook> chooseSourcebookPage(List<SourceBook> sourcebooksWithLink) {
+        JList<SourceBook> sourceBookList = new JList<>(sourcebooksWithLink.toArray(SourceBook[]::new));
         sourceBookList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         sourceBookList.setSelectedIndex(0);
-        sourceBookList.setVisibleRowCount(Math.min(sourcebooksWithMul.size(), 8));
+        sourceBookList.setVisibleRowCount(Math.min(sourcebooksWithLink.size(), 8));
         sourceBookList.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
@@ -957,7 +1019,7 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
 
         JScrollPane scrollPane = new JScrollPane(sourceBookList);
         JOptionPane optionPane = new JOptionPane(scrollPane, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
-        JDialog dialog = optionPane.createDialog(this, "Open Sourcebook MUL");
+        JDialog dialog = optionPane.createDialog(this, "Open Sourcebook Page");
         sourceBookList.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
@@ -976,22 +1038,22 @@ public class BasicInfoView extends BuildView implements ITechManager, ActionList
         return Optional.empty();
     }
 
-    private void openSourcebookMUL(SourceBook sourceBook) {
+    private void openSourcebookPage(SourceBook sourceBook) {
         try {
-            Desktop.getDesktop().browse(URI.create(sourceBook.getMul_url()));
+            Desktop.getDesktop().browse(URI.create(sourceBook.getLinkUrl()));
         } catch (Exception ex) {
             LOGGER.error("", ex);
             JOptionPane.showMessageDialog(this, ex.getMessage(), "ERROR", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private static boolean hasMulUrl(SourceBook sourceBook) {
-        return (sourceBook.getMul_url() != null) && !sourceBook.getMul_url().isBlank();
+    private static boolean hasLinkUrl(SourceBook sourceBook) {
+        return sourceBook.getLinkUrl() != null;
     }
 
     private static String sourcebookDisplayName(SourceBook sourceBook) {
         String abbrev = (sourceBook.getAbbrev() == null || sourceBook.getAbbrev().isBlank())
-              ? sourceBook.getMul_url()
+              ? sourceBook.getLinkUrl()
               : sourceBook.getAbbrev();
         String title = (sourceBook.getTitle() == null || sourceBook.getTitle().isBlank())
               ? abbrev

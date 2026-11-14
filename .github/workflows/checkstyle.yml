@@ -2,7 +2,7 @@ name: Checkstyle
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'releases/**' ]
 
 jobs:
   checkstyle:
@@ -21,9 +21,10 @@ jobs:
 
     steps:
       - name: Checkout Data Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: megamek/mm-data
+          ref: ${{ github.base_ref }}
           path: mm-data
 
       - name: Find the Right MegaMek Branch
@@ -37,30 +38,69 @@ jobs:
             echo "mmBranch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
           else
             echo "mmRepo=MegaMek/megamek" >> $GITHUB_OUTPUT
-            echo "mmBranch=main" >> $GITHUB_OUTPUT
+            echo "mmBranch=${{ github.base_ref }}" >> $GITHUB_OUTPUT
           fi
           exit 0
 
       - name: Checkout MegaMek
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ steps.find_mm.outputs.mmRepo }}
           ref: ${{ steps.find_mm.outputs.mmBranch }}
           path: megamek
 
       - name: Checking out MegaMekLab
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: megameklab
 
       - name: Set up ${{ matrix.java-distribution }} JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: ${{ matrix.java-distribution }}
           java-version: ${{ matrix.java-version }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v6.4.1
+
+      # Formatting first: it finishes in about a minute and reports every violation in one run.
+      # The ratchet in build.gradle compares against the PR's target branch, which a shallow checkout does not have.
+      - name: Fetch the target branch for the formatting ratchet
+        working-directory: megameklab
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: git fetch --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+      - name: Formatting (Spotless)
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        working-directory: megameklab
+        run: |
+          ./gradlew spotlessApply "-PspotlessRatchetFrom=origin/${BASE_REF}"
+          if git diff --quiet; then
+            echo "Formatting clean."
+            exit 0
+          fi
+          {
+            echo "## Formatting violations"
+            echo
+            echo "Run \`./gradlew spotlessApply\` and commit the result. Every file below is fixed by that one command."
+            echo
+            echo '```diff'
+            git diff | head -c 900000
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # -z gives raw paths (git would otherwise quote unusual ones), and the annotation property must
+          # have % : , and line breaks percent-encoded or the path is cut short.
+          git diff --name-only -z | while IFS= read -r -d '' changedFile; do
+            escapedFile=${changedFile//%/%25}
+            escapedFile=${escapedFile//$'\r'/%0D}
+            escapedFile=${escapedFile//$'\n'/%0A}
+            escapedFile=${escapedFile//:/%3A}
+            escapedFile=${escapedFile//,/%2C}
+            echo "::error file=${escapedFile}::Formatting violation. Run ./gradlew spotlessApply"
+          done
+          exit 1
 
       - name: Checkstyle
         working-directory: megameklab

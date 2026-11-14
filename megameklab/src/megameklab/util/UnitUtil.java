@@ -38,6 +38,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -47,14 +48,17 @@ import java.util.stream.Collectors;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import jakarta.annotation.Nullable;
+import megamek.SuiteConstants;
 import megamek.client.Client;
 import megamek.codeUtilities.StringUtility;
 import megamek.common.CriticalSlot;
 import megamek.common.Player;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
-import jakarta.annotation.Nullable;
 import megamek.common.battleArmor.BattleArmor;
+import megamek.common.battlefieldSupport.BattlefieldSupportAsset;
+import megamek.common.battlefieldSupport.BattlefieldSupportAssetYaml;
 import megamek.common.enums.TechBase;
 import megamek.common.equipment.*;
 import megamek.common.equipment.enums.MiscTypeFlag;
@@ -64,6 +68,7 @@ import megamek.common.interfaces.ITechManager;
 import megamek.common.interfaces.ITechnology;
 import megamek.common.loaders.BLKFile;
 import megamek.common.loaders.MekFileParser;
+import megamek.common.loaders.MtfFile;
 import megamek.common.options.OptionsConstants;
 import megamek.common.units.*;
 import megamek.common.util.BuildingBlock;
@@ -106,7 +111,9 @@ public class UnitUtil {
         final Game game = dummyClient.getGame();
         game.getOptions().getOption(OptionsConstants.ADVANCED_STRATOPS_QUIRKS).setValue(true);
         game.getOptions().getOption(OptionsConstants.RPG_PILOT_ADVANTAGES).setValue(true);
-        game.getOptions().getOption(OptionsConstants.RPG_MANEI_DOMINI).setValue(true);
+        // Pilot implants are a three-way option; any setting but Off lets a unit's implants load
+        game.getOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE)
+              .setValue(OptionsConstants.NEURAL_INTERFACE_MODE_PILOT_ONLY);
         game.addPlayer(1, dummyPlayer);
         dummyClient.setLocalPlayerNumber(1);
     }
@@ -416,7 +423,7 @@ public class UnitUtil {
         } else if (unit instanceof BattleArmor battleArmor) {
             BattleArmorUtil.removeAllCriticalSlotsFrom(battleArmor);
         } else {
-            // weapon bays can never be outside of their location, so delete them
+            // weapon bays can never be outside their location, so delete them
             List<Mounted<?>> weaponBays =
                   unit.getEquipment().stream()
                         .filter(m -> m.getType() instanceof BayWeapon)
@@ -495,8 +502,9 @@ public class UnitUtil {
 
     /**
      * Adds the given Mounted equipment to the given unit in the given location, applying rearMounted, by forwarding to
-     * Entity.addEquipment() -- see that method for details. Also sets the equipment to pod-mounted on Omni units if
-     * possible, and updates Clan CASE placement on Meks. This method is an MML wrapper for Entity.addEquipment().
+     * Entity.addEquipment() -- see that method for details. On Omni units, new equipment becomes pod-mounted if
+     * possible, while equipment already on the unit that is only being placed keeps its pod or fixed status. Also
+     * updates Clan CASE placement on Meks. This method is an MML wrapper for Entity.addEquipment().
      *
      * @param unit        The Entity
      * @param mounted     The equipment to add
@@ -508,8 +516,13 @@ public class UnitUtil {
      */
     public static void addMounted(Entity unit, Mounted<?> mounted, int loc, boolean rearMounted)
           throws LocationFullException {
+        boolean isAlreadyOnUnit = unit.getEquipmentNum(mounted) != -1;
         unit.addEquipment(mounted, loc, rearMounted);
-        mounted.setOmniPodMounted(canPodMount(unit, mounted));
+        if (isAlreadyOnUnit) {
+            keepPodStatusWhereAllowed(unit, mounted);
+        } else {
+            mounted.setOmniPodMounted(canPodMount(unit, mounted));
+        }
 
         if (unit instanceof Mek mek) {
             MekUtil.updateClanCasePlacement(mek);
@@ -619,7 +632,8 @@ public class UnitUtil {
             // construction options
             return !eq.hasAnyFlag(MiscTypeFlag.S_CLUB, MiscTypeFlag.S_TREE_CLUB);
         }
-        return eq.hasFlag(MiscType.F_HAND_WEAPON) || eq.hasFlag(MiscType.F_TALON) || eq.hasFlag(MiscType.F_RAM_PLATE);
+        return eq.hasFlag(MiscType.F_HAND_WEAPON) || eq.hasFlag(MiscType.F_TALON) || eq.hasFlag(MiscType.F_SHIELD)
+              || eq.hasFlag(MiscType.F_RAM_PLATE);
     }
 
     public static String getHeatSinkType(String type, boolean clan) {
@@ -774,6 +788,23 @@ public class UnitUtil {
      */
     public static Mounted<?> findUnallocatedAmmo(Entity unit, EquipmentType at) {
         return ConstructionUtil.findUnallocatedAmmo(unit, at);
+    }
+
+    /**
+     * Keeps equipment that is being moved or placed on an Omni unit pod-mounted or fixed as it was, turning a pod into
+     * fixed equipment only where the rules no longer allow it as a pod. Placing equipment must not decide its status
+     * afresh: re-placed fixed equipment that silently became a pod altered the base chassis, and a MekHQ refit to the
+     * design became Class F (MegaMekLab #2400, MekHQ #10981).
+     *
+     * @param unit    the unit the equipment is on
+     * @param mounted the equipment being moved or placed
+     */
+    public static void keepPodStatusWhereAllowed(Entity unit, Mounted<?> mounted) {
+        if (mounted.isOmniPodMounted() && !canPodMount(unit, mounted)) {
+            LOGGER.debug("[OmniPods] {}: {} can no longer be a pod here and becomes fixed", unit.getShortName(),
+                  mounted.getName());
+            mounted.setOmniPodMounted(false);
+        }
     }
 
     /**
@@ -988,11 +1019,8 @@ public class UnitUtil {
         } else if (unit.isSupportVehicle()) {
             // Max armor is determined by number of points.
             double weight = TestSupportVehicle.maxArmorFactor(unit) * TestSupportVehicle.armorWeightPerPoint(unit);
-            if (unit.getWeightClass() == EntityWeightClass.WEIGHT_SMALL_SUPPORT) {
-                return TestEntity.round(weight, Ceil.KILO);
-            } else {
-                return TestEntity.ceil(weight, Ceil.HALF_TON);
-            }
+            return TestEntity.ceil(weight, unit.getWeightClass() == EntityWeightClass.WEIGHT_SMALL_SUPPORT ?
+                  Ceil.KILO : Ceil.HALF_TON);
         } else if (unit instanceof Tank) {
             double points = Math.floor((unit.getWeight() * 3.5) + 40);
             armorWeight = points / armorPerTon;
@@ -2037,8 +2065,13 @@ public class UnitUtil {
                 dirty = true;
                 InfantryUtil.replaceMainWeapon(pbi, null, true);
             }
-            if (techManager.getTechLevel().ordinal() <= SimpleTechLevel.STANDARD.ordinal() && pbi.hasFieldWeapon()) {
+            if (techManager.getTechLevel().ordinal() < SimpleTechLevel.ADVANCED.ordinal() && pbi.hasFieldWeapon()) {
+                dirty = true;
                 InfantryUtil.replaceFieldGun(pbi, null, 0);
+            }
+            if (techManager.getTechLevel().ordinal() < SimpleTechLevel.ADVANCED.ordinal() && pbi.hasDisposableWeapon()) {
+                dirty = true;
+                pbi.equipDisposableWeapon(null);
             }
         }
         return dirty;
@@ -2111,6 +2144,8 @@ public class UnitUtil {
     public static long getEditorTypeForEntity(Entity newUnit) {
         if ((newUnit == null) || (newUnit instanceof Mek)) {
             return Entity.ETYPE_MEK;
+        } else if (newUnit instanceof BattlefieldSupportAsset) {
+            return Entity.ETYPE_BATTLEFIELD_SUPPORT_ASSET;
         } else if (newUnit.isSupportVehicle()) {
             return Entity.ETYPE_SUPPORT_TANK;
         } else if (newUnit.hasETypeFlag(Entity.ETYPE_SMALL_CRAFT)) {
@@ -2149,7 +2184,17 @@ public class UnitUtil {
         }
         try {
             String unitAsString;
-            if (entity instanceof Mek) {
+            if (entity instanceof BattlefieldSupportAsset asset) {
+                // Assets serialize to the .bfs YAML format. The datestamp header (analogous to the MTF/BLK first
+                // line) is a YAML comment, so it is prepended here and honors includeGeneratorHeader rather than
+                // being stripped afterwards like the Mek/BLK header below.
+                String yaml = BattlefieldSupportAssetYaml.toYaml(asset.toAssetData());
+                if (includeGeneratorHeader) {
+                    return "# Saved from version " + SuiteConstants.VERSION + " on " + LocalDate.now()
+                          + java.lang.System.lineSeparator() + yaml;
+                }
+                return yaml;
+            } else if (entity instanceof Mek) {
                 unitAsString = ((Mek) entity).getMtf();
             } else {
                 BuildingBlock blk = BLKFile.getBlock(entity);
@@ -2161,7 +2206,12 @@ public class UnitUtil {
                 unitAsString = sb.toString();
             }
             if (!includeGeneratorHeader) {
-                return unitAsString.substring(unitAsString.indexOf("\n") + 1);
+                int generatorStart = unitAsString.indexOf(MtfFile.GENERATOR);
+                if (generatorStart >= 0) {
+                    int generatorEnd = unitAsString.indexOf('\n', generatorStart);
+                    return unitAsString.substring(0, generatorStart)
+                          + ((generatorEnd >= 0) ? unitAsString.substring(generatorEnd + 1) : "");
+                }
             }
             return unitAsString;
         } catch (Exception ex) {
@@ -2209,6 +2259,9 @@ public class UnitUtil {
      * @param entity The entity to reset
      */
     static public void resetUnit(Entity entity) {
+        if (entity instanceof BattlefieldSupportAsset asset) {
+            asset.setDestroyCheck(asset.getODestroyCheck());
+        }
         for (Mounted<?> mounted : entity.getEquipment()) {
             if (mounted instanceof MiscMounted misc) {
                 misc.setDamageTaken(0);
@@ -2248,6 +2301,10 @@ public class UnitUtil {
     }
 
     static public boolean isDamaged(Entity entity, boolean includeCrew) {
+        if ((entity instanceof BattlefieldSupportAsset asset)
+              && (asset.getDestroyCheck() != asset.getODestroyCheck())) {
+            return true;
+        }
         for (Mounted<?> mounted : entity.getEquipment()) {
             if (mounted.isHit() || mounted.isDestroyed() || mounted.isMissing()) {
                 return true;

@@ -55,7 +55,6 @@ import megamek.common.equipment.Mounted;
 import megamek.common.interfaces.ITechManager;
 import megamek.common.units.ConvInfantry;
 import megamek.common.units.EntityMovementMode;
-import megamek.common.units.Infantry;
 import megamek.common.verifier.TestInfantry;
 import megameklab.ui.generalUnit.BuildView;
 import megameklab.ui.generalUnit.StandardBuildLabel;
@@ -89,6 +88,12 @@ public class CIWeaponView extends BuildView implements ActionListener {
     private final JComboBox<Integer> cbNumSecondary = new JComboBox<>();
     private final JComboBox<Integer> cbNumGuns = new JComboBox<>();
     private final JCheckBox chkAntiMek = new JCheckBox();
+
+    /**
+     * Disposable Weapon (TO:AuE p.116, Corrected Sixth Printing): read-only display, set from the weapon table like
+     * primary/secondary.
+     */
+    private final DisplayTextField txtDisposable = new DisplayTextField(WidthControlComponent.TEXT_FIELD_COLUMNS);
 
     private final ITechManager techManager;
     private final String fgMotiveMsg;
@@ -176,6 +181,19 @@ public class CIWeaponView extends BuildView implements ActionListener {
         chkAntiMek.setHorizontalTextPosition(SwingConstants.LEFT);
         chkAntiMek.addActionListener(this);
         add(antiMekPanel, gbc);
+
+        gbc.gridy++;
+        gbc.gridwidth = 1;
+        gbc.anchor = GridBagConstraints.EAST;
+        add(new StandardBuildLabel(resourceMap.getString("InfantryWeaponView.txtDisposable.text")), gbc);
+        txtDisposable.setToolTipText(resourceMap.getString("InfantryWeaponView.txtDisposable.tooltip"));
+        add(txtDisposable, gbc);
+        txtDisposable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                structureTab.showWeaponChoiceTable();
+            }
+        });
     }
 
     public void setFromEntity(ConvInfantry inf) {
@@ -207,7 +225,10 @@ public class CIWeaponView extends BuildView implements ActionListener {
         }
         cbNumSecondary.addActionListener(this);
 
+        cbNumGuns.removeActionListener(this);
+
         if (!inf.hasFieldWeapon()) {
+            cbNumGuns.setSelectedIndex(0);
             cbNumGuns.setEnabled(false);
             if (!FIELD_GUN_MODES.contains(inf.getMovementMode())) {
                 txtGuns.setText(fgMotiveMsg);
@@ -216,10 +237,8 @@ public class CIWeaponView extends BuildView implements ActionListener {
             }
         } else {
             cbNumGuns.setEnabled(true);
-            cbNumGuns.removeActionListener(this);
             List<Mounted<?>> fieldGuns = inf.originalFieldWeapons();
             cbNumGuns.setSelectedIndex(fieldGuns.size());
-            cbNumGuns.addActionListener(this);
             txtGuns.setText(fieldGuns.getFirst().getName());
         }
 
@@ -228,12 +247,24 @@ public class CIWeaponView extends BuildView implements ActionListener {
             cbNumGuns.setEnabled(true);
         } else {
             txtGuns.setEnabled(false);
+            cbNumGuns.setSelectedIndex(0);
             cbNumGuns.setEnabled(false);
         }
+
+        cbNumGuns.addActionListener(this);
 
         chkAntiMek.removeActionListener(this);
         chkAntiMek.setSelected(inf.hasAntiMekGear());
         chkAntiMek.addActionListener(this);
+
+        if (inf.getDisposableWeapon() != null) {
+            txtDisposable.setText(InfantryUtil.trimInfantryWeaponNames(inf.getDisposableWeapon().getName()));
+        } else {
+            txtDisposable.setText(noneMsg);
+        }
+        // Disposable Weapons (TO:AuE p.116, Corrected Sixth Printing) are Advanced; only editable at Advanced tech
+        // level or higher.
+        txtDisposable.setEnabled(techManager.getTechLevel().ordinal() >= SimpleTechLevel.ADVANCED.ordinal());
     }
 
     private int selectedFieldGunCount() {

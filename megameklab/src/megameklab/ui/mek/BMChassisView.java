@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2017-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -52,9 +52,9 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import jakarta.annotation.Nullable;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
-import jakarta.annotation.Nullable;
 import megamek.common.equipment.Engine;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.EquipmentTypeLookup;
@@ -108,17 +108,17 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
 
     // Engines that can be used by Meks and the order they appear in the combobox
     private final static int[] ENGINE_TYPES = {
-          Engine.NORMAL_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE, Engine.FUEL_CELL, Engine.LIGHT_ENGINE,
-          Engine.COMPACT_ENGINE, Engine.FISSION, Engine.COMBUSTION_ENGINE
+          Engine.COMBUSTION_ENGINE, Engine.FUEL_CELL, Engine.FISSION, Engine.COMPACT_ENGINE, Engine.NORMAL_ENGINE,
+          Engine.LIGHT_ENGINE, Engine.XL_ENGINE, Engine.XXL_ENGINE
     };
     // Industrial (and primitive) Meks can use non-fusion engines under standard rules, but cannot use
     // any fusion engines other than standard.
     private final static int[] INDUSTRIAL_ENGINE_TYPES = {
-          Engine.NORMAL_ENGINE, Engine.FUEL_CELL, Engine.FISSION, Engine.COMBUSTION_ENGINE
+          Engine.COMBUSTION_ENGINE, Engine.FUEL_CELL, Engine.FISSION, Engine.NORMAL_ENGINE
     };
     // LAMs can only use fusion engines that are contained entirely within the center torso.
     private final static int[] LAM_ENGINE_TYPES = {
-          Engine.NORMAL_ENGINE, Engine.COMPACT_ENGINE
+          Engine.COMPACT_ENGINE, Engine.NORMAL_ENGINE
     };
     // OS Meks: OS engines + canon Fusion (IS) as baseline.
     // Order: Fusion -> Light -> XL -> XXL -> Compact; tier within family: Std -> Improve -> Advance.
@@ -661,10 +661,10 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         boolean isClan = techManager.useClanTechBase();
         if (isIndustrial()) {
             String name = EquipmentType.getStructureTypeName(EquipmentType.T_STRUCTURE_INDUSTRIAL, isClan);
-            addAvailableStructure(availableStructures, EquipmentType.get(name));
+            addAvailableStructure(availableStructures, EquipmentType.getStructureFromName(name));
         } else if (isPrimitive()) {
             String name = EquipmentType.getStructureTypeName(EquipmentType.T_STRUCTURE_STANDARD, isClan);
-            addAvailableStructure(availableStructures, EquipmentType.get(name));
+            addAvailableStructure(availableStructures, EquipmentType.getStructureFromName(name));
         } else if (techManager.useOSTechBase()) {
             int[] osStructureTypes = isSuperheavy() ? OS_SH_STRUCTURE_TYPES : OS_STRUCTURE_TYPES;
             if (techManager.useMixedTech()) {
@@ -709,11 +709,11 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
                   SUPERHEAVY_STRUCTURE_TYPES : STRUCTURE_TYPES;
             for (int i : structureTypes) {
                 String name = EquipmentType.getStructureTypeName(i, isClan);
-                EquipmentType structure = EquipmentType.get(name);
+                EquipmentType structure = EquipmentType.getStructureFromName(name);
                 // LAMs cannot use bulky structure
                 addAvailableStructure(availableStructures, structure);
                 name = EquipmentType.getStructureTypeName(i, !isClan);
-                EquipmentType structure2 = EquipmentType.get(name);
+                EquipmentType structure2 = EquipmentType.getStructureFromName(name);
                 addAvailableStructure(availableStructures, structure2);
             }
         }
@@ -953,6 +953,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         if (getEngineRating() > 400) {
             flags |= Engine.LARGE_ENGINE;
         }
+        if (isIndustrial()) {
+            flags |= Engine.INDUSTRIAL_ENGINE;
+        }
         int altFlags = flags ^ Engine.CLAN_ENGINE;
         int[] engineTypes = ENGINE_TYPES;
         if (techManager.useOSTechBase()) {
@@ -966,8 +969,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         } else if (getBaseTypeIndex() == BASE_TYPE_LAM) {
             engineTypes = LAM_ENGINE_TYPES;
         }
-        // Non-superheavies can use non-fusion engines under experimental rules
-        // industrials and primitives can use non-fusion under standard rules
+        // Non-superheavies can use non-fusion engines under experimental rules (TO:AUE p.120)
+        // Industrials and primitives can use non-fusion under standard rules
         boolean allowNonFusion = isIndustrial() || isPrimitive() || (!isSuperheavy()
               && techManager.getTechLevel().compareTo(SimpleTechLevel.EXPERIMENTAL) >= 0);
         for (int i : engineTypes) {
@@ -976,13 +979,11 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
                   && techManager.isLegal(e)) {
                 retVal.add(e);
             }
-            // Only add the opposite tech base if the engine is different.
-            if (isMixed && e.getSideTorsoCriticalSlots().length > 0) {
-                e = new Engine(getEngineRating(), i, altFlags);
-                if (e.engineValid && (e.isFusion() || allowNonFusion)
-                      && techManager.isLegal(e)) {
-                    retVal.add(e);
-                }
+            // Only add the opposite tech base if the engine is not mixed tech.
+            e = new Engine(getEngineRating(), i, altFlags);
+            if (isMixed && !e.isMixedTech() && e.engineValid && (e.isFusion() || allowNonFusion)
+                  && techManager.isLegal(e)) {
+                retVal.add(e);
             }
         }
         return retVal;
@@ -1003,7 +1004,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
     }
 
     public int getMinimumTonnage() {
-        return techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, false, false,
+        return techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, isPrimitive(), isIndustrial(),
               EntityWeightClass.WEIGHT_ULTRA_LIGHT)) ? 10 : 20;
     }
 
@@ -1012,8 +1013,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
             return 55;
         }
         if (((getBaseTypeIndex() == BASE_TYPE_STANDARD) || (getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL))
-              && techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, false,
-              getBaseTypeIndex() == BASE_TYPE_INDUSTRIAL, EntityWeightClass.WEIGHT_SUPER_HEAVY))) {
+              && techManager.isLegal(Mek.getTechAdvancement(Entity.ETYPE_MEK, isPrimitive(),
+              isIndustrial(), EntityWeightClass.WEIGHT_SUPER_HEAVY))) {
             return 200;
         }
         return 100;
@@ -1119,7 +1120,7 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         if (structureName == null) {
             return null;
         }
-        EquipmentType structure = EquipmentType.get(structureName);
+        EquipmentType structure = EquipmentType.getStructureFromName(structureName);
         if (structure != null) {
             return structure;
         }
@@ -1144,8 +1145,8 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         if (!availableStructures.isEmpty()) {
             return availableStructures.get(0);
         }
-        return EquipmentType.get(EquipmentType.getStructureTypeName(EquipmentType.T_STRUCTURE_STANDARD,
-              techManager.useClanTechBase()));
+        return EquipmentType.getStructureFromName(EquipmentType.getStructureTypeName(
+            EquipmentType.T_STRUCTURE_STANDARD, techManager.useClanTechBase()));
     }
 
     public Engine getEngine() {
@@ -1161,6 +1162,9 @@ public class BMChassisView extends BuildView implements ActionListener, ChangeLi
         }
         if (isSuperheavy()) {
             flags |= Engine.SUPERHEAVY_ENGINE;
+        }
+        if (isIndustrial()) {
+            flags |= Engine.INDUSTRIAL_ENGINE;
         }
         return new Engine(getEngineRating(), e.getEngineType(), flags);
     }

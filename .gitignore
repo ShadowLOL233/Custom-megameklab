@@ -36,7 +36,7 @@
 /megameklab/sheets
 /megameklab/svgexport
 
-/megameklab/docs/OfficiaulUnitList.txt
+/megameklab/docs/OfficialUnitList.txt
 /megameklab/docs/mml-revision.txt
 /megameklab/MegaMekLab.l4j.ini
 units.cache
@@ -47,3 +47,5 @@ units.cache
 /megameklab/docs/LICENSE*
 
 /megameklab/data
+/megameklab/MUL/
+

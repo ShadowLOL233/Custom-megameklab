@@ -52,8 +52,13 @@ import java.util.stream.Collectors;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 
+import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.common.Configuration;
 import megamek.common.enums.WeaponSortOrder;
+import megamek.common.game.Game;
+import megamek.common.options.OptionsConstants;
+import megamek.common.rules.core.CoreRulesManager;
+import megamek.common.rules.totalwarfare.TWRulesManager;
 import megamek.logging.MMLogger;
 import megameklab.printing.MekChassisArrangement;
 import megameklab.printing.PrintRecordSheet;
@@ -90,6 +95,8 @@ public final class CConfig {
     public static final String MISC_MUL_OPEN_BEHAVIOUR = "mulDndBehaviour";
     public static final String MISC_INCLUDE_LICENSE = "includeLicense";
     public static final String MISC_EQUIPMENT_INFO_TOOLTIP = "equipmentInfoTooltip";
+    public static final String MISC_SHOW_AVAILABILITY_TAB = "showAvailabilityTab";
+    public static final String MISC_RULES_SYSTEM = OptionsConstants.RULES_SYSTEM;
 
     public static final String GUI_PLAF = "lookAndFeel";
     public static final String GUI_COLOR_WEAPONS = "Weapons";
@@ -188,6 +195,10 @@ public final class CConfig {
         defaults.setProperty(MISC_APPLICATION_EXIT_PROMPT, Boolean.toString(true));
         defaults.setProperty(MISC_INCLUDE_LICENSE, Boolean.toString(false));
         defaults.setProperty(MISC_EQUIPMENT_INFO_TOOLTIP, Boolean.toString(true));
+        defaults.setProperty(MISC_RULES_SYSTEM, OptionsConstants.RULES_CORE);
+        // On by default so the Force Generator Availability tab is visible; it can be hidden from Options - General.
+        // The toggle is read when an editor is built, so a change takes effect on the next unit opened, not live.
+        defaults.setProperty(MISC_SHOW_AVAILABILITY_TAB, Boolean.toString(true));
         defaults.setProperty(RS_PROGRESS_BAR, Boolean.toString(true));
         defaults.setProperty(RS_COLOR, RecordSheetOptions.ColorMode.LOGO_ONLY.name());
         defaults.setProperty(RS_HEAT_SCALE_MARKER, RecordSheetOptions.HeatScaleMarker.ASTERISK.name());
@@ -271,6 +282,7 @@ public final class CConfig {
         } catch (Exception ex) {
             logger.error("", ex);
         }
+        applyRulesSystem();
     }
 
     /**
@@ -585,12 +597,37 @@ public final class CConfig {
         return MMLStartUp.parse(CConfig.getParam(CConfig.MISC_STARTUP));
     }
 
+    /**
+     * Returns the selected game rules system. Unknown or missing values use MegaMek's default Core rules.
+     */
+    public static String getRulesSystem() {
+        return OptionsConstants.RULES_TW.equals(getParam(MISC_RULES_SYSTEM))
+              ? OptionsConstants.RULES_TW
+              : OptionsConstants.RULES_CORE;
+    }
+
+    /** Applies MML's selected game rules to MegaMek's global rules manager. */
+    public static void applyRulesSystem() {
+        Game.rulesManager = OptionsConstants.RULES_TW.equals(getRulesSystem())
+              ? new TWRulesManager()
+              : new CoreRulesManager();
+    }
+
+    /** @return whether MML is currently calculating with Total Warfare rules. */
+    public static boolean usesTotalWarfareRules() {
+        return Game.rulesManager instanceof TWRulesManager;
+    }
+
     public static MekChassisArrangement getMekNameArrangement() {
         return MekChassisArrangement.parse(CConfig.getParam(CConfig.RS_MEK_NAMES));
     }
 
     public static boolean includeLicense() {
         return CConfig.getBooleanParam(CConfig.MISC_INCLUDE_LICENSE);
+    }
+
+    public static boolean showAvailabilityTab() {
+        return CConfig.getBooleanParam(CConfig.MISC_SHOW_AVAILABILITY_TAB);
     }
 
     public static void resetWindowPositions() {
@@ -607,6 +644,9 @@ public final class CConfig {
         setParam(GUI_WS_MAIN_UI_WINDOW, "");
         setParam(GUI_HHW_MAIN_UI_WINDOW, "");
         setParam(GUI_TABBED_WINDOW, "");
+        GUIPreferences GUIP = GUIPreferences.getInstance();
+        GUIP.setMekSelectorPosX(0);
+        GUIP.setMekSelectorPosY(0);
         saveConfig();
     }
 
@@ -683,6 +723,7 @@ public final class CConfig {
     }
 
     private static void applyImportedSettings(MenuBarOwner menuBarOwner) {
+        applyRulesSystem();
         menuBarOwner.changeTheme(getParam(GUI_PLAF));
         menuBarOwner.refreshAll();
     }

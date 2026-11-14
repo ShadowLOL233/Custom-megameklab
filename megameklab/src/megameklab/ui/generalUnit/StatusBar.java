@@ -32,14 +32,19 @@
  */
 package megameklab.ui.generalUnit;
 
+import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.UIManager;
 import javax.swing.border.MatteBorder;
 
@@ -51,20 +56,15 @@ import megamek.client.ui.dialogs.abstractDialogs.CostDisplayDialog;
 import megamek.client.ui.dialogs.abstractDialogs.WeightDisplayDialog;
 import megamek.client.ui.util.UIUtil;
 import megamek.common.battleArmor.BattleArmor;
-import megamek.common.equipment.AmmoType;
-import megamek.common.equipment.Engine;
-import megamek.common.equipment.MiscType;
-import megamek.common.equipment.Mounted;
-import megamek.common.equipment.WeaponType;
-import megamek.common.units.Aero;
-import megamek.common.units.Mek;
 import megamek.common.verifier.TestEntity;
 import megamek.utilities.DebugEntity;
+import megameklab.ui.BugReportHelper;
 import megameklab.ui.ForceBuildUI;
 import megameklab.ui.MegaMekLabMainUI;
 import megameklab.ui.util.ITab;
 import megameklab.ui.util.RefreshListener;
 import megameklab.util.CConfig;
+import megameklab.util.HeatGenerationEstimate;
 import megameklab.util.UnitUtil;
 
 public class StatusBar extends ITab {
@@ -79,16 +79,32 @@ public class StatusBar extends ITab {
     private final JLabel cost = new ClickableLabel(
           e -> new CostDisplayDialog(getParentFrame(), getEntity()).setVisible(true));
     private final JLabel invalid = new JLabel("Invalid");
-    private final DecimalFormat formatter;
+    private final JPanel statusComponents = new JPanel(new WrapLayout(FlowLayout.LEFT, 22, 8));
+    private final DecimalFormat costFormatter;
     private TestEntity testEntity;
     private RefreshListener refresh;
 
     public StatusBar(MegaMekLabMainUI parent) {
         super(parent);
         setBorder(new MatteBorder(1, 0, 0, 0, UIManager.getColor("Separator.foreground")));
-        setLayout(new WrapLayout(FlowLayout.LEFT, 22, 8));
+        setLayout(new BorderLayout());
         this.parent = parent;
-        formatter = new DecimalFormat();
+        costFormatter = new DecimalFormat();
+
+        statusComponents.setOpaque(false);
+        add(statusComponents, BorderLayout.CENTER);
+        // WrapLayout's preferred height changes with its allocated width.
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent event) {
+                statusComponents.revalidate();
+            }
+        });
+
+        JPanel reportButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 22, 8));
+        reportButtonPanel.setOpaque(false);
+        reportButtonPanel.add(BugReportHelper.createButton(parent));
+        add(reportButtonPanel, BorderLayout.EAST);
 
         JButton btnValidate = new JButton("Validate");
         ActionListener validationListener = e -> {
@@ -114,16 +130,25 @@ public class StatusBar extends ITab {
         if (!getEntity().isConventionalInfantry()) {
             JButton showEquipmentDatabase = new JButton("Equipment");
             showEquipmentDatabase.addActionListener(evt -> parent.getFloatingEquipmentDatabase().setVisible(true));
-            add(showEquipmentDatabase);
+            addStatusComponent(showEquipmentDatabase);
         }
 
-        add(btnValidate);
-        add(btnAddToForce);
-        add(btnRefresh);
-        add(tons);
-        add(bvLabel);
-        add(invalid);
-        add(cost);
+        addStatusComponent(btnValidate);
+        addStatusComponent(btnAddToForce);
+        addStatusComponent(btnRefresh);
+        addStatusComponent(tons);
+        addStatusComponent(bvLabel);
+        addStatusComponent(invalid);
+        addStatusComponent(cost);
+    }
+
+    /**
+     * Adds type-specific information to the left side of the status bar while the report button remains anchored right.
+     *
+     * @param component the status component to add
+     */
+    protected final void addStatusComponent(Component component) {
+        statusComponents.add(component);
     }
 
     public final void refresh() {
@@ -196,9 +221,9 @@ public class StatusBar extends ITab {
     }
 
     private void refreshCost() {
-        cost.setText("Dry Cost: " + formatter.format(Math.round(getEntity().getCost(true))) + " C-bills");
+        cost.setText("Dry Cost: " + costFormatter.format(getEntity().getCost(true)) + " C-bills");
         cost.setToolTipText("The dry cost of the unit (without ammo). The unit's full cost is "
-              + formatter.format(Math.round(getEntity().getCost(false))) + " C-bills. "
+              + costFormatter.format(getEntity().getCost(false)) + " C-bills. "
               + "Click to show the cost calculation.");
     }
 
@@ -217,66 +242,13 @@ public class StatusBar extends ITab {
     }
 
     /**
-     * Returns an estimated value of the total heat generation for Meks and Aerospace (0 for other types). This method
-     * is very specific to this use and cannot be generalized. It shouldn't be used elsewhere. It is here in StatusBar
-     * to avoid duplication in BMStatusBar and ASStatusBar.
+     * Returns an estimated value of the total heat generation for Meks and Aerospace (0 for other types), as worked
+     * out by {@link HeatGenerationEstimate}. It is here in StatusBar to avoid duplication in BMStatusBar and
+     * ASStatusBar.
      *
      * @return An estimated value of the total heat generation.
      */
     protected long estimatedHeatGeneration() {
-        if (!(getEntity() instanceof Mek) && !(getEntity() instanceof Aero)) {
-            return 0;
-        }
-        double heat = 0;
-
-        if (getEntity() instanceof Mek mek) {
-            if (mek.getOriginalJumpMP() > 0) {
-                heat += mek.getJumpHeat(mek.getOriginalJumpMP());
-            } else if (mek.getEngineType() == Engine.XXL_ENGINE) {
-                heat += 6;
-            } else {
-                heat += 2;
-            }
-        }
-
-        for (Mounted<?> mounted : getEntity().getTotalWeaponList()) {
-            WeaponType weaponType = (WeaponType) mounted.getType();
-            double weaponHeat = weaponType.getHeat();
-
-            if (mounted.isMissing() || mounted.isHit() || mounted.isDestroyed() || mounted.isBreached()) {
-                continue;
-            }
-
-            if ((weaponType.getAmmoType() == AmmoType.AmmoTypeEnum.ROCKET_LAUNCHER)
-                  || weaponType.hasFlag(WeaponType.F_ONE_SHOT)) {
-                weaponHeat *= 0.25;
-            }
-
-            if ((weaponType.getAmmoType() == AmmoType.AmmoTypeEnum.AC_ULTRA) || (weaponType.getAmmoType()
-                  == AmmoType.AmmoTypeEnum.AC_ULTRA_THB)) {
-                weaponHeat *= 2;
-            }
-
-            if (weaponType.getAmmoType() == AmmoType.AmmoTypeEnum.AC_ROTARY) {
-                weaponHeat *= 6;
-            }
-
-            if ((weaponType.getAmmoType() == AmmoType.AmmoTypeEnum.SRM_STREAK) || (weaponType.getAmmoType()
-                  == AmmoType.AmmoTypeEnum.LRM_STREAK)) {
-                weaponHeat *= 0.5;
-            }
-            heat += weaponHeat;
-        }
-
-        for (Mounted<?> m : getEntity().getMisc()) {
-            if (m.getType().hasFlag(MiscType.F_LASER_INSULATOR)) {
-                heat--;
-            } else if (m.getType().hasFlag(MiscType.F_PPC_CAPACITOR)) {
-                heat += 5;
-            } else {
-                heat += m.getType().getHeat();
-            }
-        }
-        return Math.round(heat);
+        return HeatGenerationEstimate.estimate(getEntity());
     }
 }

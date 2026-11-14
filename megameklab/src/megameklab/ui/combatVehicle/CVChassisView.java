@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2017-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -481,13 +481,10 @@ public class CVChassisView extends BuildView implements ActionListener, ChangeLi
             if (e.engineValid && techManager.isLegal(e)) {
                 retVal.add(e);
             }
-            // Only add the opposite tech base if the engine is different.
-            // (i.e. different slot requirement)
-            if (isMixed && e.getSideTorsoCriticalSlots().length > 0) {
-                e = new Engine(getEngineRating(), i, altFlags);
-                if (e.engineValid && techManager.isLegal(e)) {
-                    retVal.add(e);
-                }
+            // Only add the opposite tech base if the engine is not mixed tech.
+            e = new Engine(getEngineRating(), i, altFlags);
+            if (isMixed && !e.isMixedTech() && e.engineValid && techManager.isLegal(e)) {
+                retVal.add(e);
             }
         }
         return retVal;

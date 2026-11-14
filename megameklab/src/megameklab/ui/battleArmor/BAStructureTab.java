@@ -61,6 +61,7 @@ import megamek.common.verifier.TestBattleArmor;
 import megamek.common.verifier.TestEntity;
 import megamek.logging.MMLogger;
 import megameklab.ui.EntitySource;
+import megameklab.ui.battlefieldSupport.BFSLinkedEditor;
 import megameklab.ui.generalUnit.BAProtoArmorView;
 import megameklab.ui.generalUnit.BasicInfoView;
 import megameklab.ui.generalUnit.IconView;
@@ -109,6 +110,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
         panArmor.setBorder(BorderFactory.createTitledBorder("Armor"));
         panManipulator.setBorder(BorderFactory.createTitledBorder("Manipulators"));
         panEnhancements.setBorder(BorderFactory.createTitledBorder("Enhancements"));
+        panBasicInfo.showBattlefieldSupportAssetControl(eSource instanceof BFSLinkedEditor);
 
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -145,6 +147,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
 
     public void refresh() {
         panBasicInfo.setFromEntity(getBattleArmor());
+        syncBattlefieldSupportControl();
         panChassis.setFromEntity(getBattleArmor());
         panMovement.setFromEntity(getBattleArmor());
         panArmor.setFromEntity(getBattleArmor());
@@ -157,6 +160,26 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
         addAllListeners();
     }
 
+    /** Syncs the Basic-Info BFS toggle to the editor's current enable state and motive eligibility. */
+    private void syncBattlefieldSupportControl() {
+        if (eSource instanceof BFSLinkedEditor bfs) {
+            boolean eligible = bfs.isBattlefieldSupportAssetMotiveEligible();
+            if (!eligible && bfs.isBattlefieldSupportAssetLinked()) {
+                // The base's motive is no longer a legal asset motive; auto-disable the asset.
+                bfs.setBattlefieldSupportAssetLinked(false);
+            }
+            panBasicInfo.setBattlefieldSupportAssetControlEnabled(eligible);
+            panBasicInfo.setBattlefieldSupportAssetSelected(bfs.isBattlefieldSupportAssetLinked());
+        }
+    }
+
+    @Override
+    public void battlefieldSupportAssetToggled(boolean enabled) {
+        if (eSource instanceof BFSLinkedEditor bfs) {
+            bfs.setBattlefieldSupportAssetLinked(enabled);
+        }
+    }
+
     public ITechManager getTechManager() {
         return panBasicInfo;
     }
@@ -166,6 +189,10 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
      */
     public void setTechFaction(Faction techFaction) {
         panBasicInfo.setTechFaction(techFaction);
+    }
+
+    public void setGameYearOverride(int gameYear) {
+        panBasicInfo.setGameYearOverride(gameYear);
     }
 
     public void addAllListeners() {
@@ -187,6 +214,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
     public void addRefreshedListener(RefreshListener l) {
         refresh = l;
         panManipulator.addRefreshedListener(l);
+        iconView.setRefreshedListener(l);
     }
 
     public void setAsCustomization() {
@@ -279,7 +307,10 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
         } else {
             refresh.refreshEquipmentTable();
         }
-        panChassis.refresh();
+        if (!panBasicInfo.useClanTechBase()) {
+            getBattleArmor().setClanExoWithoutHarJel(false);
+        }
+        panChassis.setFromEntity(getBattleArmor());
         panMovement.refresh();
         panEnhancements.setFromEntity(getBattleArmor());
         panArmor.refresh();
@@ -377,7 +408,7 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
             getBattleArmor().setClanExoWithoutHarJel(false);
         }
         panBasicInfo.setFromEntity(getBattleArmor());
-        panChassis.refresh();
+        panChassis.setFromEntity(getBattleArmor());
         panMovement.setFromEntity(getBattleArmor());
         panArmor.setFromEntity(getBattleArmor());
         panEnhancements.setFromEntity(getBattleArmor());
@@ -388,18 +419,19 @@ public class BAStructureTab extends ITab implements BABuildListener, ArmorAlloca
     @Override
     public void exoskeletonChanged(boolean exoskeleton) {
         getBattleArmor().setIsExoskeleton(exoskeleton);
-        if (exoskeleton && !panBasicInfo.useClanTechBase()) {
-            getBattleArmor().setClanExoWithoutHarJel(panChassis.hasHarjel());
+        if (panBasicInfo.useClanTechBase() && !exoskeleton) {
+            getBattleArmor().setClanExoWithoutHarJel(false);
         }
         panBasicInfo.setFromEntity(getBattleArmor());
+        panChassis.setFromEntity(getBattleArmor());
         panArmor.refresh();
         refresh.refreshStatus();
         refreshPreview();
     }
 
     @Override
-    public void harjelChanged(boolean harjel) {
-        getBattleArmor().setClanExoWithoutHarJel(panChassis.isExoskeleton() && !harjel);
+    public void harJelChanged(boolean harJel) {
+        getBattleArmor().setClanExoWithoutHarJel(panChassis.isExoskeleton() && !harJel);
         refresh.refreshStatus();
         refreshPreview();
     }

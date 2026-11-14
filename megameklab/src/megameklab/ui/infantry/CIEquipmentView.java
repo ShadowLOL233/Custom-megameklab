@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2008-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMekLab.
  *
@@ -33,76 +33,82 @@
 package megameklab.ui.infantry;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.GridLayout;
-import java.awt.Insets;
+import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableRowSorter;
 
+import megamek.client.ui.WrapLayout;
+import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.models.XTableColumnModel;
+import megamek.client.ui.util.UIUtil;
+import megamek.common.SimpleTechLevel;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.WeaponType;
 import megamek.common.interfaces.ITechManager;
 import megamek.common.units.ConvInfantry;
+import megamek.common.units.EntityMovementMode;
 import megamek.common.verifier.TestInfantry;
 import megamek.common.weapons.infantry.InfantryWeapon;
 import megameklab.ui.EntitySource;
 import megameklab.ui.util.EquipmentTableModel;
 import megameklab.ui.util.IView;
 import megameklab.ui.util.RefreshListener;
+import megameklab.util.CConfig;
 import megameklab.util.InfantryUtil;
 
 /**
  * @author (original) jtighe (torren@users.sourceforge.net)
  */
 public class CIEquipmentView extends IView implements ActionListener {
-    private static final int T_ARCHAIC = 0;
-    private static final int T_PERSONAL = 1;
-    private static final int T_SUPPORT = 2;
-    private static final int T_WEAPON = 3;
-    private static final int T_NUM = 4;
-
     private RefreshListener refresh;
 
+    /** The tech manager passed at construction; {@code eSource.getTechManager()} is not yet wired during construction. */
+    private final ITechManager techManager;
+
+    private final JButton showAllButton = new JButton("Show All");
     private final JButton addPrimaryButton = new JButton("Add Primary");
     private final JButton addSecondaryButton = new JButton("Add Secondary");
-    private final JComboBox<String> choiceType = new JComboBox<>();
-    private final JTextField txtFilter = new JTextField(12);
+    private final JButton addDisposableButton = new JButton("Add Disposable");
+    private final JButton removeDisposableButton = new JButton("Remove Disposable");
 
-    private final JRadioButton radioButtonStats = new JRadioButton("Stats");
-    private final JRadioButton radioButtonFluff = new JRadioButton("Fluff");
-    final private JCheckBox chkShowAll = new JCheckBox("Show Unavailable");
+    private final JToggleButton showArchaicButton = new JToggleButton("Archaic");
+    private final JToggleButton showPersonalButton = new JToggleButton("Personal", true);
+    private final JToggleButton showSupportButton = new JToggleButton("Support");
+    private final JToggleButton showDisposableButton = new JToggleButton("Disposable");
+    private final JToggleButton hideUnavailableButton = new JToggleButton("Unavailable", true);
+    private final List<JToggleButton> showToggles = new ArrayList<>(List.of(showArchaicButton, showPersonalButton,
+          showSupportButton, showDisposableButton));
 
-    private final TableRowSorter<EquipmentTableModel> equipmentSorter;
+    private final JTextField txtFilter = new JTextField("", 15);
+    private final JButton tableModeButton = new JButton("Switch Table Columns");
+    private boolean tableMode = true;
 
     private final EquipmentTableModel masterEquipmentList;
+    private final TableRowSorter<EquipmentTableModel> equipmentSorter;
     private final JTable masterEquipmentTable = new JTable();
 
     private final String ADD_PRIMARY_COMMAND = "ADD_PRIMARY";
     private final String ADD_SECONDARY_COMMAND = "ADD_SECONDARY";
-
-    public static String getTypeName(int type) {
-        return switch (type) {
-            case T_WEAPON -> "All Weapons";
-            case T_ARCHAIC -> "Archaic Weapons";
-            case T_PERSONAL -> "Personal Weapons";
-            case T_SUPPORT -> "Support Weapons";
-            default -> "?";
-        };
-    }
+    private final String ADD_DISPOSABLE_COMMAND = "ADD_DISPOSABLE";
+    private final String REMOVE_DISPOSABLE_COMMAND = "REMOVE_DISPOSABLE";
 
     public CIEquipmentView(EntitySource eSource, ITechManager techManager) {
         super(eSource);
+        this.techManager = techManager;
 
         masterEquipmentList = new EquipmentTableModel(eSource.getEntity(), techManager);
         masterEquipmentTable.setModel(masterEquipmentList);
@@ -133,12 +139,17 @@ public class CIEquipmentView extends IView implements ActionListener {
             if (selected >= 0) {
                 equipmentType = masterEquipmentList.getType(masterEquipmentTable.convertRowIndexToModel(selected));
             }
-            addPrimaryButton.setEnabled((null != equipmentType)
+            addPrimaryButton.setEnabled((equipmentType != null)
                   && eSource.getTechManager().isLegal(equipmentType)
                   && !equipmentType.hasFlag(WeaponType.F_INF_SUPPORT));
-            addSecondaryButton.setEnabled((null != equipmentType)
+            addSecondaryButton.setEnabled((equipmentType != null)
                   && eSource.getTechManager().isLegal(equipmentType)
                   && (TestInfantry.maxSecondaryWeapons(getInfantry()) > 0));
+            addDisposableButton.setEnabled((equipmentType != null)
+                  && eSource.getTechManager().isLegal(equipmentType)
+                  && equipmentType.hasFlag(WeaponType.F_INF_DISPOSABLE)
+                  && isDisposableTechLevel()
+                  && !getInfantry().hasDisposableWeapon());
         };
         masterEquipmentTable.getSelectionModel().addListSelectionListener(selectionListener);
         masterEquipmentTable.setDoubleBuffered(true);
@@ -155,76 +166,11 @@ public class CIEquipmentView extends IView implements ActionListener {
         }
 
         masterEquipmentList.setData(allTypes);
-
-        DefaultComboBoxModel<String> typeModel = new DefaultComboBoxModel<>();
-        for (int i = 0; i < T_NUM; i++) {
-            typeModel.addElement(getTypeName(i));
-        }
-        choiceType.setModel(typeModel);
-        choiceType.setSelectedIndex(1);
-        choiceType.addActionListener(evt -> filterEquipment());
-
-        txtFilter.setText("");
-        txtFilter.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void changedUpdate(DocumentEvent evt) {
-                filterEquipment();
-            }
-
-            @Override
-            public void insertUpdate(DocumentEvent evt) {
-                filterEquipment();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent evt) {
-                filterEquipment();
-            }
-        });
-
-        ButtonGroup buttonGroupView = new ButtonGroup();
-        buttonGroupView.add(radioButtonStats);
-        buttonGroupView.add(radioButtonFluff);
-
-        radioButtonStats.setSelected(true);
-        radioButtonStats.addActionListener(ev -> setEquipmentView());
-        radioButtonFluff.addActionListener(ev -> setEquipmentView());
-        chkShowAll.addActionListener(ev -> filterEquipment());
-        JPanel viewPanel = new JPanel(new GridLayout(0, 3));
-        viewPanel.add(radioButtonStats);
-        viewPanel.add(radioButtonFluff);
-        viewPanel.add(chkShowAll);
         setEquipmentView();
 
-        JPanel btnPanel = new JPanel(new GridLayout(0, 2));
-        btnPanel.add(addPrimaryButton);
-        btnPanel.add(addSecondaryButton);
-
-        // layout
-        JPanel databasePanel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        gbc.gridy = 0;
-        gbc.gridwidth = GridBagConstraints.REMAINDER;
-        gbc.anchor = GridBagConstraints.WEST;
-        databasePanel.add(btnPanel, gbc);
-
-        gbc.gridy++;
-        gbc.gridwidth = 1;
-        databasePanel.add(choiceType, gbc);
-        databasePanel.add(txtFilter, gbc);
-        gbc.weightx = 1;
-        databasePanel.add(viewPanel, gbc);
-
-        gbc.insets = new Insets(2, 0, 0, 0);
-        gbc.gridy++;
-        gbc.gridwidth = GridBagConstraints.REMAINDER;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1;
-        databasePanel.add(masterEquipmentScroll, gbc);
-
         setLayout(new BorderLayout());
-        add(databasePanel, BorderLayout.CENTER);
+        add(getControlPanel(), BorderLayout.PAGE_START);
+        add(masterEquipmentScroll, BorderLayout.CENTER);
     }
 
     public void addRefreshedListener(RefreshListener l) {
@@ -235,50 +181,98 @@ public class CIEquipmentView extends IView implements ActionListener {
         removeAllListeners();
         filterEquipment();
         addSecondaryButton.setEnabled(TestInfantry.maxSecondaryWeapons(getInfantry()) > 0);
+        addDisposableButton.setEnabled(isDisposableTechLevel() && !getInfantry().hasDisposableWeapon());
+        removeDisposableButton.setEnabled(getInfantry().hasDisposableWeapon());
         addAllListeners();
     }
 
     private void removeAllListeners() {
         addPrimaryButton.removeActionListener(this);
         addSecondaryButton.removeActionListener(this);
+        addDisposableButton.removeActionListener(this);
+        removeDisposableButton.removeActionListener(this);
     }
 
     private void addAllListeners() {
         addPrimaryButton.addActionListener(this);
         addSecondaryButton.addActionListener(this);
+        addDisposableButton.addActionListener(this);
+        removeDisposableButton.addActionListener(this);
         addPrimaryButton.setActionCommand(ADD_PRIMARY_COMMAND);
         addSecondaryButton.setActionCommand(ADD_SECONDARY_COMMAND);
+        addDisposableButton.setActionCommand(ADD_DISPOSABLE_COMMAND);
+        removeDisposableButton.setActionCommand(REMOVE_DISPOSABLE_COMMAND);
     }
 
     @Override
     public void actionPerformed(ActionEvent evt) {
-        if (evt.getActionCommand().equals(ADD_PRIMARY_COMMAND) ||
-              evt.getActionCommand().equals(ADD_SECONDARY_COMMAND)) {
-            boolean isSecondary = evt.getActionCommand().equals(ADD_SECONDARY_COMMAND);
-            int view = masterEquipmentTable.getSelectedRow();
-            if (view < 0) {
-                // selection got filtered away
+        switch (evt.getActionCommand()) {
+            case ADD_PRIMARY_COMMAND, ADD_SECONDARY_COMMAND ->
+                  addMainWeapon(evt.getActionCommand().equals(ADD_SECONDARY_COMMAND));
+            case ADD_DISPOSABLE_COMMAND -> addDisposableWeapon();
+            case REMOVE_DISPOSABLE_COMMAND -> getInfantry().equipDisposableWeapon(null);
+            default -> {
                 return;
             }
-            int selected = masterEquipmentTable.convertRowIndexToModel(view);
-            EquipmentType equip = masterEquipmentList.getType(selected);
-            if (equip instanceof InfantryWeapon) {
-                InfantryUtil.replaceMainWeapon(getInfantry(), (InfantryWeapon) equip, isSecondary);
-                if (equip.hasFlag(WeaponType.F_TAG)) {
-                    getInfantry().setSpecializations(getInfantry().getSpecializations() | ConvInfantry.TAG_TROOPS);
-                    getInfantry().setSecondaryWeaponsPerSquad(2);
-                } else if (isSecondary && (getInfantry().getSecondaryWeaponsPerSquad() == 0)) {
-                    getInfantry().setSecondaryWeaponsPerSquad(1);
-                }
-            }
-        } else {
-            return;
         }
         refresh.refreshAll();
     }
 
+    /**
+     * @return the currently selected weapon in the table, or null if none / filtered away
+     */
+    private EquipmentType selectedEquipment() {
+        int view = masterEquipmentTable.getSelectedRow();
+        if (view < 0) {
+            return null;
+        }
+        return masterEquipmentList.getType(masterEquipmentTable.convertRowIndexToModel(view));
+    }
+
+    private void addMainWeapon(boolean isSecondary) {
+        if (selectedEquipment() instanceof InfantryWeapon weapon) {
+            InfantryUtil.replaceMainWeapon(getInfantry(), weapon, isSecondary);
+            if (weapon.hasFlag(WeaponType.F_TAG)) {
+                getInfantry().setSpecializations(getInfantry().getSpecializations() | ConvInfantry.TAG_TROOPS);
+                getInfantry().setSecondaryWeaponsPerSquad(2);
+            } else if (isSecondary) {
+                getInfantry().setSpecializations(getInfantry().getSpecializations() & ~ConvInfantry.TAG_TROOPS);
+                if (getInfantry().getSecondaryWeaponsPerSquad() == 0) {
+                    getInfantry().setSecondaryWeaponsPerSquad(1);
+                }
+            }
+        }
+    }
+
+    private void addDisposableWeapon() {
+        if ((selectedEquipment() instanceof InfantryWeapon weapon)
+              && weapon.hasFlag(WeaponType.F_INF_DISPOSABLE)
+              && eSource.getTechManager().isLegal(weapon)) {
+            getInfantry().equipDisposableWeapon(weapon);
+        }
+    }
+
+    /**
+     * @return true if the game's tech level is Advanced or higher, where the Advanced Disposable Weapon rule (TO:AR
+     * p.106) is available
+     */
+    private boolean isDisposableTechLevel() {
+        return techManager.getTechLevel().ordinal() >= SimpleTechLevel.ADVANCED.ordinal();
+    }
+
+    private void toggleEquipment(ActionEvent e) {
+        if ((e.getModifiers() & ActionEvent.CTRL_MASK) == 0) {
+            showToggles.forEach(button -> button.setSelected(e.getSource() == button));
+        }
+        filterEquipment();
+    }
+
+    private void showAllEquipment() {
+        showToggles.forEach(button -> button.setSelected(true));
+        filterEquipment();
+    }
+
     private void filterEquipment() {
-        final int nType = choiceType.getSelectedIndex();
         RowFilter<EquipmentTableModel, Integer> equipmentTypeFilter = new RowFilter<>() {
             @Override
             public boolean include(Entry<? extends EquipmentTableModel, ? extends Integer> entry) {
@@ -290,16 +284,23 @@ public class CIEquipmentView extends IView implements ActionListener {
                 if (getInfantry().getSquadSize() < (getInfantry().getSecondaryWeaponsPerSquad() * weapon.getCrew())) {
                     return false;
                 }
-                if ((nType == T_WEAPON)
-                      || ((nType == T_ARCHAIC) && etype.hasFlag(WeaponType.F_INF_ARCHAIC))
-                      || ((nType == T_PERSONAL)
-                      && !etype.hasFlag(WeaponType.F_INF_ARCHAIC)
+                if ((showArchaicButton.isSelected() && etype.hasFlag(WeaponType.F_INF_ARCHAIC))
+                      || (showPersonalButton.isSelected() && !etype.hasFlag(WeaponType.F_INF_ARCHAIC)
                       && !etype.hasFlag(WeaponType.F_INF_SUPPORT))
-                      || ((nType == T_SUPPORT) && etype.hasFlag(WeaponType.F_INF_SUPPORT))
+                      || (showSupportButton.isSelected() && etype.hasFlag(WeaponType.F_INF_SUPPORT))
+                      || (showDisposableButton.isSelected() && etype.hasFlag(WeaponType.F_INF_DISPOSABLE))
                 ) {
-                    if (null != eSource.getTechManager()
+                    if (eSource.getTechManager() != null
                           && !eSource.getTechManager().isLegal(etype)
-                          && !chkShowAll.isSelected()) {
+                          && hideUnavailableButton.isSelected()) {
+                        return false;
+                    }
+
+                    if (etype.hasFlag(WeaponType.F_INF_SUPPORT)
+                          && ((TestInfantry.maxSecondaryWeapons(getInfantry()) == 0)
+                          || (etype.is("Particle Cannon (Support)")
+                          && getInfantry().getMovementMode() != EntityMovementMode.INF_MOTORIZED
+                          && getInfantry().getMovementMode() != EntityMovementMode.TRACKED))) {
                         return false;
                     }
 
@@ -316,64 +317,217 @@ public class CIEquipmentView extends IView implements ActionListener {
         equipmentSorter.setRowFilter(equipmentTypeFilter);
     }
 
-    public void setEquipmentView() {
-        XTableColumnModel columnModel = (XTableColumnModel) masterEquipmentTable.getColumnModel();
-        if (radioButtonStats.isSelected()) {
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_NAME), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DAMAGE), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DIVISOR), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SPECIAL), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_HEAT), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_MEDIUM_RANGE),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_RANGE), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SHOTS), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_LEVEL), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_RATING), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PROTOTYPE),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PRODUCTION),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_COMMON), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_EXTINCT),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_REINTRODUCED),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_COST), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CREW), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_BV), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TON), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CRIT), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_REF), true);
-        } else {
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_NAME), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DAMAGE), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DIVISOR), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SPECIAL), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_HEAT), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_MEDIUM_RANGE),
-                  false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_RANGE), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SHOTS), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_LEVEL), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_RATING), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PROTOTYPE),
-                  true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PRODUCTION),
-                  true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_COMMON), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_EXTINCT), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_REINTRODUCED),
-                  true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_COST), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CREW), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_BV), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TON), true);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CRIT), false);
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_REF), true);
-        }
+    private void switchTableMode() {
+        tableMode = !tableMode;
+        setEquipmentView();
     }
 
+    private void setEquipmentView() {
+        XTableColumnModel columnModel = (XTableColumnModel) masterEquipmentTable.getColumnModel();
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_NAME), true);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DAMAGE), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DIVISOR), false);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SPECIAL), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_HEAT), false);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_MEDIUM_RANGE),
+              false);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_RANGE), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_SHOTS), false);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH), true);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_LEVEL), !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TECH_RATING),
+              !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PROTOTYPE),
+              !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_PRODUCTION),
+              !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_COMMON), !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_EXTINCT),
+              !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_DATE_REINTRODUCED),
+              !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_COST), !tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CREW), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_BV), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_TON), tableMode);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_CRIT), false);
+        columnModel.setColumnVisible(columnModel.getColumnByModelIndex(EquipmentTableModel.COL_REF), tableMode);
+    }
+
+    /** Creates the control panel with the filters and buttons. */
+    private JComponent getControlPanel() {
+        Box controlPanel = Box.createVerticalBox();
+        controlPanel.add(getShowTogglesPanel());
+        controlPanel.add(Box.createVerticalStrut(4));
+        controlPanel.add(getHideTogglesPanel());
+        controlPanel.add(Box.createVerticalStrut(4));
+        controlPanel.add(getAddRemoveButtonsPanel());
+        controlPanel.add(Box.createVerticalStrut(4));
+        controlPanel.add(getTextFilterAndTableModeButtonPanel());
+        controlPanel.setBorder(new EmptyBorder(5, 0, 5, 0));
+        return controlPanel;
+    }
+
+    /**
+     * Creates a small info panel. Has a dismiss button that will prevent it from being shown again.
+     */
+    private JComponent getUserInfoPanel() {
+        Box userInfoPanel = Box.createHorizontalBox();
+        userInfoPanel.setOpaque(false);
+        JButton gotItButton = new JButton("Got it!");
+        gotItButton.setForeground(UIUtil.uiYellow());
+        gotItButton.addActionListener(e -> {
+            userInfoPanel.setVisible(false);
+            CConfig.setParam(CConfig.NAG_EQUIPMENT_CTRL_CLICK, Boolean.toString(false));
+            CConfig.saveConfig();
+        });
+        JLabel userInfoText = new JLabel("<html>Note: Ctrl-Click a filter to add it to the selected filters.</html>") {
+            @Override
+            public Dimension getMaximumSize() { return getPreferredSize(); }
+        };
+        userInfoText.setForeground(UIUtil.uiYellow());
+        userInfoPanel.add(userInfoText);
+        userInfoPanel.add(Box.createHorizontalStrut(5));
+        userInfoPanel.add(gotItButton);
+        userInfoPanel.add(Box.createHorizontalGlue());
+        userInfoPanel.setBorder(new EmptyBorder(4, 5, 0, 0));
+        return userInfoPanel;
+    }
+
+    /**
+     * Constructs and returns the Panel containing the "Show:" toggles.
+     */
+    private Component getShowTogglesPanel() {
+        var buttonPanel = new JPanel(new WrapLayout(FlowLayout.LEFT));
+        buttonPanel.setOpaque(false);
+        // The following listener deals with resizing problems of WrapLayout
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                buttonPanel.invalidate();
+                super.componentResized(e);
+            }
+        });
+
+        showToggles.forEach(button -> {
+            button.addActionListener(this::toggleEquipment);
+            buttonPanel.add(button);
+        });
+        showAllButton.addActionListener(e -> showAllEquipment());
+        buttonPanel.add(showAllButton);
+
+        var buttonAndInfoPanel = Box.createVerticalBox();
+        if (CConfig.getBooleanParam(CConfig.NAG_EQUIPMENT_CTRL_CLICK)) {
+            buttonAndInfoPanel.add(getUserInfoPanel());
+        }
+        buttonAndInfoPanel.add(buttonPanel);
+
+        var showTogglesPanel = Box.createHorizontalBox();
+        showTogglesPanel.add(new JLabel("Show: "));
+        showTogglesPanel.add(buttonAndInfoPanel);
+        showTogglesPanel.setBackground(UIManager.getColor("Table.background"));
+        showTogglesPanel.setOpaque(true);
+        showTogglesPanel.setBorder(new EmptyBorder(0, 4, 0, 4));
+        return showTogglesPanel;
+    }
+
+    /**
+     * Constructs and returns the Panel containing the "Hide:" toggles.
+     */
+    private Component getHideTogglesPanel() {
+        var buttonPanel = new JPanel(new WrapLayout(FlowLayout.LEFT));
+        buttonPanel.setOpaque(false);
+        // The following listener deals with resizing problems of WrapLayout
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                buttonPanel.invalidate();
+                super.componentResized(e);
+            }
+        });
+
+        hideUnavailableButton.addActionListener(e -> filterEquipment());
+        buttonPanel.add(hideUnavailableButton);
+
+        var hideTogglesPanel = Box.createHorizontalBox();
+        hideTogglesPanel.add(new JLabel("Hide: "));
+        hideTogglesPanel.add(buttonPanel);
+        hideTogglesPanel.setBackground(UIManager.getColor("Table.background"));
+        hideTogglesPanel.setOpaque(true);
+        hideTogglesPanel.setBorder(new EmptyBorder(0, 4, 0, 4));
+        return hideTogglesPanel;
+    }
+
+    /**
+     * Constructs and returns the Panel containing the Add and Remove buttons.
+     */
+    private Component getAddRemoveButtonsPanel() {
+        var buttonPanel = new JPanel(new WrapLayout(FlowLayout.LEFT));
+        buttonPanel.setOpaque(false);
+        // The following listener deals with resizing problems of WrapLayout
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                buttonPanel.invalidate();
+                super.componentResized(e);
+            }
+        });
+        buttonPanel.add(addPrimaryButton);
+        buttonPanel.add(addSecondaryButton);
+        buttonPanel.add(addDisposableButton);
+        buttonPanel.add(removeDisposableButton);
+
+        var addRemoveButtonsPanel = Box.createHorizontalBox();
+        addRemoveButtonsPanel.add(buttonPanel);
+        addRemoveButtonsPanel.setBackground(UIManager.getColor("Table.background"));
+        addRemoveButtonsPanel.setOpaque(true);
+        return addRemoveButtonsPanel;
+    }
+
+    /**
+     * Constructs and returns the Panel containing the Text Filter and the Table Mode button.
+     */
+    private Component getTextFilterAndTableModeButtonPanel() {
+        var textAndButtonPanel = new JPanel(new WrapLayout(FlowLayout.LEFT));
+        textAndButtonPanel.setOpaque(false);
+        // The following listener deals with resizing problems of WrapLayout
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                textAndButtonPanel.invalidate();
+                super.componentResized(e);
+            }
+        });
+        txtFilter.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void changedUpdate(DocumentEvent evt) {
+                equipmentSorter.sort();
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent evt) {
+                equipmentSorter.sort();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent evt) {
+                equipmentSorter.sort();
+            }
+        });
+        textAndButtonPanel.add(new JLabel("Text Filter: "));
+        textAndButtonPanel.add(txtFilter);
+        var cancelTextFilter = new JButton("X");
+        cancelTextFilter.setForeground(GUIPreferences.getInstance().getWarningColor());
+        cancelTextFilter.addActionListener(e -> txtFilter.setText(""));
+        textAndButtonPanel.add(cancelTextFilter);
+        textAndButtonPanel.add(Box.createHorizontalStrut(15));
+        textAndButtonPanel.add(tableModeButton);
+        tableModeButton.addActionListener(e -> switchTableMode());
+
+        var textFilterAndTableModeButtonPanel = Box.createHorizontalBox();
+        textFilterAndTableModeButtonPanel.add(textAndButtonPanel);
+        textFilterAndTableModeButtonPanel.setBackground(UIManager.getColor("Table.background"));
+        textFilterAndTableModeButtonPanel.setOpaque(true);
+        return textFilterAndTableModeButtonPanel;
+    }
 }

@@ -47,7 +47,9 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.WindowConstants;
 
+import jakarta.annotation.Nullable;
 import megamek.MegaMek;
 import megamek.client.ui.dialogs.UnitLoadingDialog;
 import megamek.client.ui.util.UIUtil;
@@ -58,8 +60,8 @@ import megamek.client.ui.widget.SkinSpecification.UIComponents;
 import megamek.client.ui.widget.SkinXMLHandler;
 import megamek.client.ui.widget.SkinnedJPanel;
 import megamek.common.Configuration;
-import jakarta.annotation.Nullable;
 import megamek.common.loaders.MekSummary;
+import megamek.common.ui.AppIcons;
 import megamek.common.units.Entity;
 import megamek.common.util.ImageUtil;
 import megamek.common.util.ManagedVolatileImage;
@@ -100,6 +102,7 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         super(UIComponents.MainMenuBorder, 1);
         frame = new JFrame("MegaMekLab");
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        AppIcons.apply(frame, "megameklab");
         lastDpiScaleFactor = UIUtil.getMonitorScaleFactor(frame);
         tipOfTheDay = new TipOfTheDay(resourceMap.getString("TipOfTheDay.title.text"),
               "megameklab.resources.TipOfTheDay",
@@ -472,7 +475,7 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         if (medalImage == null) {
             return; // Skip drawing if medalImage is not initialized
         }
-        VolatileImage image = medalImage.getImage();
+        VolatileImage image = medalImage.getImage(frame.getGraphicsConfiguration());
         if (image.getWidth(null) > 0 && image.getHeight(null) > 0) {
             double medalScalePercent = 0.10; // Medal height as % of panel
 
@@ -504,7 +507,7 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
         if (logoImage == null) {
             return 0; // Skip drawing if logoImage is not initialized
         }
-        VolatileImage image = logoImage.getImage();
+        VolatileImage image = logoImage.getImage(frame.getGraphicsConfiguration());
         int targetLogoHeight = 0;
         if (image.getWidth(null) > 0 && image.getHeight(null) > 0) {
             double logoWidthScalePercent = 0.3f; // Logo width as 30% of panel width
@@ -552,6 +555,17 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
     }
 
     /**
+     * Shows the cache progress dialog in a modal event loop. The unit selector waits synchronously for the cache after
+     * this dialog closes, so a modeless dialog would leave the Swing event thread blocked and unable to paint its status
+     * text or progress bar.
+     */
+    static void showUnitLoadingProgress(UnitLoadingDialog unitLoadingDialog) {
+        unitLoadingDialog.setModalityType(Dialog.ModalityType.DOCUMENT_MODAL);
+        unitLoadingDialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        unitLoadingDialog.setVisible(true);
+    }
+
+    /**
      * Shows the Unit Selector Window and loads the unit if the user selects one. When the chosen unit fits the
      * MageMekLabMainUI given as previousFrame this frame will be kept and updated to the chosen unit, otherwise, a new
      * UI will be created for the unit and previousFrame will be closed and disposed.
@@ -560,11 +574,11 @@ public class StartupGUI extends SkinnedJPanel implements MenuBarOwner {
      */
     public static void selectAndLoadUnitFromCache(MenuBarOwner previousFrame) {
         UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(previousFrame.getFrame());
-        unitLoadingDialog.setVisible(true);
+        showUnitLoadingProgress(unitLoadingDialog);
         MegaMekLabUnitSelectorDialog viewer;
         if (previousFrame instanceof MegaMekLabTabbedUI tabbedUI) {
             viewer = new MegaMekLabUnitSelectorDialog(previousFrame.getFrame(), unitLoadingDialog,
-                  dialog -> addUnits(dialog, tabbedUI));
+                  dialog -> addUnits(dialog, tabbedUI), false);
         } else {
             viewer = new MegaMekLabUnitSelectorDialog(previousFrame.getFrame(), unitLoadingDialog, true);
         }

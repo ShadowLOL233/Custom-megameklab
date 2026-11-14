@@ -50,19 +50,22 @@ import javax.swing.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import jakarta.annotation.Nullable;
 import megamek.client.ui.CopySystemDataAction;
-import megamek.client.ui.ShowBugReportDialogAction;
+import megamek.client.ui.ReleaseNotesAction;
 import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.dialogs.UnitLoadingDialog;
 import megamek.client.ui.dialogs.abstractDialogs.BVDisplayDialog;
 import megamek.client.ui.dialogs.abstractDialogs.CostDisplayDialog;
+import megamek.client.ui.dialogs.abstractDialogs.TechLevelDisplayDialog;
 import megamek.client.ui.dialogs.abstractDialogs.WeightDisplayDialog;
 import megamek.client.ui.dialogs.unitSelectorDialogs.EntityReadoutDialog;
 import megamek.client.ui.entityreadout.EntityReadout;
 import megamek.client.ui.util.UIUtil;
 import megamek.client.ui.util.ViewFormatting;
-import jakarta.annotation.Nullable;
 import megamek.common.battleArmor.BattleArmor;
+import megamek.common.enums.Faction;
+import megamek.common.interfaces.ITechManager;
 import megamek.common.loaders.MekFileParser;
 import megamek.common.loaders.MekSummaryCache;
 import megamek.common.templates.TROView;
@@ -108,6 +111,7 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
 
     public MenuBar(MenuBarOwner owner) {
         this.owner = owner;
+        BugReportHelper.installOnErrorDialogs(owner);
         initialize();
     }
 
@@ -150,7 +154,7 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         add(createHelpMenu());
         loadUnitFileChooser.setDialogTitle(resources.getString("dialog.chooseUnit.title"));
         loadUnitFileChooser.setFileFilter(new FileNameExtensionFilter("Unit files",
-              "mtf", "blk", "hmp", "hmv", "mep", "tdb"));
+              "mtf", "blk", "hmp", "hmv", "mep", "tdb", "bfs"));
         loadImageFileChooser.setDialogTitle(resources.getString("dialog.chooseUnit.title"));
         loadImageFileChooser.setFileFilter(new FileNameExtensionFilter("Image files (.png, .jpg, .gif)",
               "png", "jpg", "jpeg", "gif"));
@@ -162,18 +166,19 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
             miNewUnit.setMnemonic(mnemonic);
         }
         miNewUnit.addActionListener(evt -> {
-            MegaMekLabTabbedUI tabbedUI;
-            if (owner instanceof MegaMekLabTabbedUI) {
-                tabbedUI = (MegaMekLabTabbedUI) owner;
-            } else {
-                tabbedUI = new MegaMekLabTabbedUI();
+            boolean newWindow = !(owner instanceof MegaMekLabTabbedUI);
+            MegaMekLabTabbedUI tabbedUI = newWindow
+                  ? new MegaMekLabTabbedUI()
+                  : (MegaMekLabTabbedUI) owner;
+
+            tabbedUI.createNewUnit(type, primitive, false);
+            if (newWindow) {
                 tabbedUI.setVisible(true);
                 if (isStartupGui()) {
                     owner.getFrame().setVisible(false);
                     owner.getFrame().dispose();
                 }
             }
-            tabbedUI.createNewUnit(type, primitive, false);
         });
         return miNewUnit;
     }
@@ -201,6 +206,8 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         miNewTab.add(newUnitItem("ProtoMek", KeyEvent.VK_P, Entity.ETYPE_PROTOMEK, false));
         miNewTab.add(newUnitItem("Handheld Weapon", KeyEvent.VK_H, Entity.ETYPE_HANDHELD_WEAPON, false));
         miNewTab.add(newUnitItem("Gun Emplacement", KeyEvent.VK_G, Entity.ETYPE_GUN_EMPLACEMENT, false));
+        miNewTab.add(newUnitItem("Battlefield Support Asset", KeyEvent.VK_S,
+              Entity.ETYPE_BATTLEFIELD_SUPPORT_ASSET, false));
 
         JMenu primitive = new JMenu("Primitive...");
         primitive.add(newUnitItem("Mek", KeyEvent.VK_M, Entity.ETYPE_MEK, true));
@@ -361,6 +368,13 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
             miSwitchToHandheldWeapon.setMnemonic(KeyEvent.VK_H);
             miSwitchToHandheldWeapon.addActionListener(evt -> switchUnitType(Entity.ETYPE_HANDHELD_WEAPON));
             switchUnitTypeMenu.add(miSwitchToHandheldWeapon);
+        }
+
+        if ((entity == null) || (!entity.hasETypeFlag(Entity.ETYPE_BATTLEFIELD_SUPPORT_ASSET))) {
+            final JMenuItem miSwitchToAsset = new JMenuItem("Battlefield Support Asset");
+            miSwitchToAsset.setName("miSwitchToAsset");
+            miSwitchToAsset.addActionListener(evt -> switchUnitType(Entity.ETYPE_BATTLEFIELD_SUPPORT_ASSET));
+            switchUnitTypeMenu.add(miSwitchToAsset);
         }
 
         switchUnitTypeMenu.add(createPrimitiveMenu(entity));
@@ -1028,8 +1042,54 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         reportsMenu.add(createUnitBVBreakdownMenu());
         reportsMenu.add(createUnitCostBreakdownMenu());
         reportsMenu.add(createUnitWeightBreakdownMenu());
+        reportsMenu.add(createUnitTechLevelBreakdownMenu());
 
         return reportsMenu;
+    }
+
+    /**
+     * @return the created Composite Tech Level menu
+     */
+    private JMenu createUnitTechLevelBreakdownMenu() {
+        final JMenu unitTechLevelBreakdownMenu = new JMenu(resources.getString("unitTechLevelBreakdownMenu.text"));
+        unitTechLevelBreakdownMenu.setName("unitTechLevelBreakdownMenu");
+        unitTechLevelBreakdownMenu.setMnemonic(KeyEvent.VK_T);
+
+        final JMenuItem miCurrentUnitTechLevelBreakdown = new JMenuItem(resources.getString("CurrentUnit.text"));
+        miCurrentUnitTechLevelBreakdown.setName("miCurrentUnitTechLevelBreakdown");
+        miCurrentUnitTechLevelBreakdown.setMnemonic(KeyEvent.VK_U);
+        miCurrentUnitTechLevelBreakdown.addActionListener(evt -> showTechLevelBreakdown(owner.getFrame(),
+              owner.getEntity(),
+              currentTechManager()));
+        miCurrentUnitTechLevelBreakdown.setEnabled(isUnitGui());
+        unitTechLevelBreakdownMenu.add(miCurrentUnitTechLevelBreakdown);
+
+        final JMenuItem miUnitTechLevelBreakdownFromCache = new JMenuItem(resources.getString("FromCache.text"));
+        miUnitTechLevelBreakdownFromCache.setName("miUnitTechLevelBreakdownFromCache");
+        miUnitTechLevelBreakdownFromCache.setMnemonic(KeyEvent.VK_C);
+        miUnitTechLevelBreakdownFromCache
+              .addActionListener(evt -> jMenuGetUnitTechLevelBreakdownFromCache_actionPerformed());
+        unitTechLevelBreakdownMenu.add(miUnitTechLevelBreakdownFromCache);
+
+        final JMenuItem miUnitTechLevelBreakdownFromFile = new JMenuItem(resources.getString("FromFile.text"));
+        miUnitTechLevelBreakdownFromFile.setName("miUnitTechLevelBreakdownFromFile");
+        miUnitTechLevelBreakdownFromFile.setMnemonic(KeyEvent.VK_F);
+        miUnitTechLevelBreakdownFromFile
+              .addActionListener(evt -> jMenuGetUnitTechLevelBreakdownFromFile_actionPerformed());
+        unitTechLevelBreakdownMenu.add(miUnitTechLevelBreakdownFromFile);
+
+        return unitTechLevelBreakdownMenu;
+    }
+
+    /**
+     * Returns the tech manager of the unit currently being edited, which carries the year, faction and Variable Tech
+     * Level setting the tech level report should be evaluated with.
+     *
+     * @return The current editor's tech manager, or {@code null} when no unit is being edited
+     */
+    private @Nullable ITechManager currentTechManager() {
+        MegaMekLabMainUI mainUi = getUnitMainUi();
+        return (mainUi == null) ? null : mainUi.getTechManager();
     }
 
     /**
@@ -1052,6 +1112,12 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         miViewForce.setMnemonic(KeyEvent.VK_V);
         miViewForce.addActionListener(evt -> viewForce());
         forceMenu.add(miViewForce);
+
+        final JMenuItem miLoadForceFromFile = new JMenuItem(resources.getString("miLoadForceFromFile.text"));
+        miLoadForceFromFile.setName("miLoadForceFromFile");
+        miLoadForceFromFile.setMnemonic(KeyEvent.VK_L);
+        miLoadForceFromFile.addActionListener(evt -> loadForceFromFile());
+        forceMenu.add(miLoadForceFromFile);
 
         refreshForceMenu();
 
@@ -1203,11 +1269,12 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         helpMenu.addSeparator();
 
         CopySystemDataAction copySystemDataAction = new CopySystemDataAction(MMLConstants.PROJECT_NAME);
-        helpMenu.add(new ShowBugReportDialogAction(owner.getFrame(), copySystemDataAction));
+        helpMenu.add(BugReportHelper.createDialogAction(owner));
         helpMenu.add(copySystemDataAction);
 
         helpMenu.addSeparator();
 
+        helpMenu.add(new ReleaseNotesAction("megameklab"));
         final JMenuItem miAbout = new JMenuItem(resources.getString("miAbout.text"));
         miAbout.setName("miAbout");
         miAbout.setMnemonic(KeyEvent.VK_A);
@@ -1262,6 +1329,35 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         } finally {
             unitLoadingDialog.dispose();
             viewer.dispose();
+        }
+    }
+
+    private void jMenuGetUnitTechLevelBreakdownFromCache_actionPerformed() {
+        UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(owner.getFrame());
+        unitLoadingDialog.setVisible(true);
+        MegaMekLabUnitSelectorDialog viewer = new MegaMekLabUnitSelectorDialog(owner.getFrame(), unitLoadingDialog,
+              false);
+        try {
+            Entity chosenEntity = viewer.getChosenEntity();
+            if (chosenEntity != null) {
+                showTechLevelBreakdown(owner.getFrame(), chosenEntity, null);
+            }
+        } finally {
+            unitLoadingDialog.dispose();
+            viewer.dispose();
+        }
+    }
+
+    private void jMenuGetUnitTechLevelBreakdownFromFile_actionPerformed() {
+        File unitFile = chooseUnitFileToLoad();
+        if (unitFile == null) {
+            return;
+        }
+
+        try {
+            showTechLevelBreakdown(owner.getFrame(), new MekFileParser(unitFile).getEntity(), null);
+        } catch (Exception ex) {
+            PopupMessages.showFileReadError(owner.getFrame(), unitFile.toString(), ex.getMessage());
         }
     }
 
@@ -1616,8 +1712,39 @@ public class MenuBar extends JMenuBar implements ClipboardOwner {
         }
     }
 
+    /**
+     * Opens the composite tech level report for the given unit. The report is evaluated with the year, faction and
+     * Variable Tech Level setting of the given tech manager; when no tech manager is available, as for a unit loaded
+     * from the cache or from a file, the unit's own introduction year and tech faction are used together with the
+     * Variable Tech Level setting from the MegaMekLab configuration.
+     *
+     * @param frame       The parent frame of the dialog
+     * @param entity      The unit to report on; nothing happens when this is {@code null}
+     * @param techManager The tech manager of the unit being edited, or {@code null} when the unit is not being edited
+     */
+    public static void showTechLevelBreakdown(final JFrame frame, final @Nullable Entity entity,
+          final @Nullable ITechManager techManager) {
+        if (entity == null) {
+            return;
+        }
+
+        boolean useVariableTechLevel = (techManager != null)
+              ? techManager.useVariableTechLevel()
+              : CConfig.getBooleanParam(CConfig.TECH_PROGRESSION);
+        int evaluationYear = (techManager != null) ? techManager.getGameYear() : entity.getYear();
+        // A unit opened from the cache or a file has no editor, so fall back to the faction it was designed
+        // with rather than no faction, which would drop faction-specific availability dates.
+        Faction techFaction = (techManager != null) ? techManager.getTechFaction() : entity.getTechFaction();
+
+        new TechLevelDisplayDialog(frame, entity, techFaction, evaluationYear, useVariableTechLevel).setVisible(true);
+    }
+
     public void viewForce() {
         ForceBuildUI.showWindow();
+    }
+
+    public void loadForceFromFile() {
+        ForceBuildUI.loadForceFromFile(owner.getFrame());
     }
 
     public void addUnitToForce(Entity entity) {

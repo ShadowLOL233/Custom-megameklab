@@ -179,6 +179,10 @@ public class DSStructureTab extends ITab implements DropshipBuildListener, Armor
         panInfo.setTechFaction(techFaction);
     }
 
+    public void setGameYearOverride(int gameYear) {
+        panInfo.setGameYearOverride(gameYear);
+    }
+
     public void refresh() {
         removeAllListeners();
 
@@ -658,6 +662,22 @@ public class DSStructureTab extends ITab implements DropshipBuildListener, Armor
     public void escapeChanged(int lifeBoats, int escapePods) {
         getSmallCraft().setLifeBoats(lifeBoats);
         getSmallCraft().setEscapePods(escapePods);
+        refreshSummary();
+        refresh.refreshStatus();
+        refresh.refreshPreview();
+    }
+
+    @Override
+    public void autoAssignLifeboats() {
+        getSmallCraft().setLifeBoats(AeroUtil.getNAutoAssignEscapeEntities(getSmallCraft()));
+        refreshSummary();
+        refresh.refreshStatus();
+        refresh.refreshPreview();
+    }
+
+    @Override
+    public void autoAssignEscapePods() {
+        getSmallCraft().setEscapePods(AeroUtil.getNAutoAssignEscapeEntities(getSmallCraft()));
         refreshSummary();
         refresh.refreshStatus();
         refresh.refreshPreview();

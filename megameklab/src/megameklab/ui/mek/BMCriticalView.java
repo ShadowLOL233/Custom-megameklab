@@ -46,28 +46,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
-import megamek.common.CriticalSlot;
 import jakarta.annotation.Nullable;
-import megamek.common.exceptions.LocationFullException;
+import megamek.client.ui.dialogs.UnitLoadingDialog;
+import megamek.common.CriticalSlot;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.Mounted;
+import megamek.common.exceptions.LocationFullException;
 import megamek.common.interfaces.ITechManager;
 import megamek.common.loaders.EntityLoadingException;
 import megamek.common.loaders.MekSummary;
@@ -75,7 +62,6 @@ import megamek.common.units.Entity;
 import megamek.common.units.Mek;
 import megamek.common.units.TripodMek;
 import megamek.common.units.UnitType;
-import megamek.client.ui.dialogs.UnitLoadingDialog;
 import megamek.logging.MMLogger;
 import megameklab.ui.EntitySource;
 import megameklab.ui.dialog.MegaMekLabUnitSelectorDialog;
@@ -701,7 +687,10 @@ public class BMCriticalView extends IView implements ActionListener, CriticalSlo
 
         if (selected != null) {
             try {
-                mek.addEquipment(Mounted.createMounted(mek, selected), loc, false);
+                Mounted<?> caseMount = Mounted.createMounted(mek, selected);
+                mek.addEquipment(caseMount, loc, false);
+                // Set directly rather than through UnitUtil.addMounted, which also moves automatic Clan CASE
+                caseMount.setOmniPodMounted(UnitUtil.canPodMount(mek, caseMount));
             } catch (Exception ignored) {
                 // Should not happen after the space check above
             }
